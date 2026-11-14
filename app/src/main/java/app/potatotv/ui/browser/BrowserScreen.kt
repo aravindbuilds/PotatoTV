@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -75,7 +76,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.compose.repeatOnLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavController
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewCompat
@@ -140,19 +141,16 @@ fun BrowserScreen(
     val favorite = favorites.contains(favoriteId)
 
     fun inject(view: WebView?) {
-        val wrapped = runCatching {
-            val js = sniffer + """
-                ;window.__potatoInjected = true;
-                window.__potatoAdHosts = ${JSON.stringify(ServiceLocator.adBlocker.allHosts().map { it.split(".").last() })};
-                if (${settings.adBlockRedirectPrevent} && window.__potatoDoBlockRedirects) window.__potatoDoBlockRedirects();
-                if (${settings.adBlockSiteHiding} && window.__potatoDoHideAds) window.__potatoDoHideAds();
-            """.trimIndent()
-            it.evaluateJavascript(js, null)
-        }
-        view?.let {
-            runCatching { it.evaluateJavascript(sniffer, null) }
-            runCatching { it.evaluateJavascript(wrapped, null) }
-        }
+        if (view == null) return
+        runCatching { view.evaluateJavascript(sniffer, null) }
+        // The 158k-domain blocklist stays in the native interceptor; JS only needs
+        // the behaviour switches so a redirect hijack can still be cancelled.
+        val js = """
+            ;window.__potatoAdHosts = window.__potatoAdHosts || [];
+            if (${settings.adBlockRedirectPrevent} && window.__potatoDoBlockRedirects) window.__potatoDoBlockRedirects();
+            if (${settings.adBlockSiteHiding} && window.__potatoDoHideAds) window.__potatoDoHideAds();
+        """.trimIndent()
+        runCatching { view.evaluateJavascript(js, null) }
     }
 
     suspend fun openPlayer(stream: SniffedStream) {
@@ -305,7 +303,7 @@ fun BrowserScreen(
                 (keyCode == android.view.KeyEvent.KEYCODE_MENU ||
                     keyCode == android.view.KeyEvent.KEYCODE_INFO)
             ) {
-                railCollapsed.value = !railCollapsed.value
+                railCollapsed = !railCollapsed
                 true
             } else {
                 false
@@ -393,7 +391,7 @@ fun BrowserScreen(
                     (event.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_MENU ||
                         event.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_INFO)
                 ) {
-                    railCollapsed.value = !railCollapsed.value
+                    railCollapsed = !railCollapsed
                     true
                 } else false
             }

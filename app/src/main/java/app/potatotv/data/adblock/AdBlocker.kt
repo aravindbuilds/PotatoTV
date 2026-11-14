@@ -56,6 +56,16 @@ class AdBlocker(private val context: Context) {
         return blockedPathHints.any { lower.contains(it) }
     }
 
+    /** Returns true if a full URL should be dropped: an ad host or an ad-like path. */
+    fun isBlocked(url: String?): Boolean {
+        if (url.isNullOrBlank()) return false
+        load()
+        val host = runCatching { android.net.Uri.parse(url).host }.getOrNull()
+        if (host != null && isAdHost(host)) return true
+        val lower = url.lowercase()
+        return blockedPathHints.any { lower.contains(it) }
+    }
+
     /** Exposed to injected JS for redirect-blocking comparisons. */
     fun allHosts(): Set<String> = domains
 

@@ -79,7 +79,7 @@ import java.net.URLEncoder
 fun SitesScreen(nav: NavController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val sites by ServiceLocator.prefs.sites.collectAsStateWithLifecycle(initialValue = emptyList())
+    val sites by ServiceLocator.prefs.sites.collectAsStateWithLifecycle(initialValue = emptyList<Site>())
     val favorites by ServiceLocator.prefs.favoriteIds.collectAsStateWithLifecycle(initialValue = emptySet())
     val settings by ServiceLocator.prefs.settings.collectAsStateWithLifecycle(initialValue = app.potatotv.data.model.AppSettings())
     var showAdd by remember { mutableStateOf(false) }
