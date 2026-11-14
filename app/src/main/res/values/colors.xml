@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="potato_bg">#0E0E0E</color>
+    <color name="potato_surface">#141414</color>
+    <color name="potato_accent">#4FCDFF</color>
+    <color name="potato_rating">#46D369</color>
+    <color name="potato_danger">#EF4444</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+</resources>
