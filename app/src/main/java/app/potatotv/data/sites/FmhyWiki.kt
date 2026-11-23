@@ -2,6 +2,8 @@ package app.potatotv.data.sites
 
 import app.potatotv.data.model.Site
 import app.potatotv.data.net.Http
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import app.potatotv.data.sources.BakedSources
 
 /**
@@ -37,29 +39,37 @@ object FmhyWiki {
     )
 
     /** Pull deeplinks + the full wiki, merge templates by host, return all sites. */
-    suspend fun refresh(): List<Site> {
-        // Both title-page directories are baked in. AnantPlay wins on shared
-        // hosts because it also carries episode and anime templates.
-        val fmhyTemplates = runCatching {
-            SiteDirectory.parse(Http.getText(BakedSources.DEEPLINKS_URL)).titleSites
-        }.getOrDefault(emptyList())
-        val anantTemplates = runCatching {
-            SiteDirectory.parse(Http.getText(BakedSources.ANANT_DEEPLINKS_URL)).titleSites
-        }.getOrDefault(emptyList())
+    suspend fun refresh(): List<Site> = kotlinx.coroutines.coroutineScope {
+        // All directories and grading are fetched concurrently; a slow mirror
+        // can no longer stall the whole import.
+        val fmhyDef = async {
+            runCatching {
+                SiteDirectory.parse(Http.getText(BakedSources.DEEPLINKS_URL)).titleSites
+            }.getOrDefault(emptyList())
+        }
+        val anantDef = async {
+            runCatching {
+                SiteDirectory.parse(Http.getText(BakedSources.ANANT_DEEPLINKS_URL)).titleSites
+            }.getOrDefault(emptyList())
+        }
+        val gradesDef = async { FmhyGrading.load() }
+        val wikiDef = async {
+            buildList {
+                runCatching { Http.getText(STREAMING_URL) }
+                    .onSuccess { addAll(parse(it)) }
+                for (url in EXTRA_URLS) {
+                    runCatching { Http.getText(url) }
+                        .onSuccess { addAll(parse(it)) }
+                }
+            }
+        }
+        val fmhyTemplates = fmhyDef.await()
+        val anantTemplates = anantDef.await()
         val anantHosts = anantTemplates.mapNotNull { it.hostOf() }.toSet()
         val templateSites = anantTemplates +
             fmhyTemplates.filterNot { it.hostOf() in anantHosts }
-        val grades = FmhyGrading.load()
-
-        val wikiSites = buildList {
-            runCatching { Http.getText(STREAMING_URL) }
-                .onSuccess { addAll(parse(it)) }
-            for (url in EXTRA_URLS) {
-                runCatching { Http.getText(url) }
-                    .onSuccess { addAll(parse(it)) }
-                    .onFailure { /* mirror not present — skip it */ }
-            }
-        }
+        val grades = gradesDef.await()
+        val wikiSites = wikiDef.await()
 
         val templatesByHost = templateSites.associateBy { it.hostOf() }
         val merged = wikiSites.map { site ->
@@ -80,7 +90,7 @@ object FmhyWiki {
             } else site.copy(rating = FmhyGrading.scoreFor(site.name, grades))
         }
         val wikiHosts = merged.map { it.hostOf() }.toSet()
-        return merged + templateSites
+        merged + templateSites
             .filterNot { it.hostOf() in wikiHosts }
             .map { it.copy(rating = FmhyGrading.scoreFor(it.name, grades)) }
     }
@@ -100,6 +110,7 @@ object FmhyWiki {
                     if (heading.contains("live", true)) category = heading
                 }
                 (line.startsWith("* ") || line.startsWith("- ")) && !line.startsWith("***") -> {
+                    val starred = line.contains("🌟") || line.contains("⭐")
                     for ((label, url) in LINK.findAll(line).map { it.destructured }) {
                         val host = hostOf(url) ?: continue
                         if (JUNK_HOSTS.any { host.endsWith(it) }) continue
@@ -111,7 +122,8 @@ object FmhyWiki {
                             name = name,
                             url = url.substringBefore('?').trimEnd('/'),
                             category = categoryFor(category, line),
-                            searchTemplate = ""
+                            searchTemplate = "",
+                            starred = starred
                         )
                     }
                 }

@@ -41,14 +41,23 @@ class HomeViewModel : ViewModel() {
             val settings = runCatching { ServiceLocator.prefs.settings.first() }
                 .getOrDefault(AppSettings())
 
-            // In FMHY-sources mode, refresh the user's site list from the directory
-            // before we render. Metadata itself still comes from Cinemeta, which is
-            // the only free, key-less catalogue PotatoTV ships with.
+            // Source import runs in the background: a slow wiki must never
+            // hold the home screen hostage. Metadata loads at the same time.
             if (settings.catalogProvider == "fmhy-sources") {
-                refreshSources(settings.siteDirectoryUrl)
+                viewModelScope.launch { refreshSources(settings.siteDirectoryUrl) }
             }
 
-            runCatching { ServiceLocator.cinemeta.homeRows() }
+            runCatching {
+                ServiceLocator.cinemeta.homeRows { row ->
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        state = state.copy(
+                            loading = false,
+                            rows = state.rows + row,
+                            hero = state.hero ?: row.items.firstOrNull()
+                        )
+                    }
+                }
+            }
                 .onSuccess { rows ->
                     state = state.copy(
                         loading = false,

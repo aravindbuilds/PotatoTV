@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -51,6 +52,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -150,6 +152,55 @@ fun PotatoTopBar(
             )
             Spacer(Modifier.width(8.dp))
             IconPill(Icons.Filled.Settings, "Settings") { onNavigate("settings") }
+        }
+    }
+}
+
+/** Phone-portrait navigation: all destinations stay one tap away. */
+@Composable
+fun PotatoBottomBar(currentRoute: String?, onNavigate: (String) -> Unit) {
+    data class NavItem(val route: String, val label: String, val icon: ImageVector)
+    val items = listOf(
+        NavItem("home", "Home", Icons.Filled.Home),
+        NavItem("sites", "Sites", Icons.Filled.Language),
+        NavItem("iptv", "Live", Icons.Filled.LiveTv),
+        NavItem("mylist", "List", Icons.Filled.Bookmark),
+        NavItem("search", "Search", Icons.Filled.Search),
+        NavItem("settings", "Settings", Icons.Filled.Settings)
+    )
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(PotatoBg)
+            .border(1.dp, PotatoLine)
+            .padding(vertical = 6.dp)
+    ) {
+        items.forEach { item ->
+            val selected = currentRoute == item.route
+            Column(
+                Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (selected) PotatoAccent.copy(alpha = 0.14f) else Color.Transparent)
+                    .clickable {
+                        onNavigate(item.route)
+                    }
+                    .padding(vertical = 7.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Icon(
+                    item.icon,
+                    contentDescription = item.label,
+                    tint = if (selected) PotatoAccent else PotatoTextDim,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    item.label,
+                    color = if (selected) PotatoAccent else PotatoTextDim,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
         }
     }
 }

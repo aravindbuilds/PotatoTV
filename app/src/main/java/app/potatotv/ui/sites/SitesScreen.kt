@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -61,6 +62,7 @@ import androidx.navigation.NavController
 import app.potatotv.ServiceLocator
 import app.potatotv.data.model.AppSettings
 import app.potatotv.data.model.Site
+import app.potatotv.data.model.ratingOutOf10
 import app.potatotv.data.net.Http
 import app.potatotv.data.sites.FmhyWiki
 import app.potatotv.data.sites.SiteDirectory
@@ -74,6 +76,8 @@ import app.potatotv.ui.theme.PotatoRating
 import app.potatotv.ui.theme.PotatoSurface
 import app.potatotv.ui.theme.PotatoText
 import app.potatotv.ui.theme.PotatoTextDim
+import app.potatotv.ui.theme.isCompactScreen
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
 
@@ -87,14 +91,39 @@ fun SitesScreen(nav: NavController) {
     var showAdd by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    var filter by remember { mutableStateOf("All") }
+    val compact = isCompactScreen()
+    val hPad = if (compact) 16.dp else 48.dp
 
-    // Favourites first, then FMHY grading score (18 best), then popularity.
+    LaunchedEffect(message) {
+        if (message != null) {
+            delay(4_000)
+            message = null
+        }
+    }
+
+    // Favourites, then FMHY's 🌟/⭐ picks, then grading and popularity.
     val sorted = sites.sortedWith(
         compareByDescending<Site> { it.id in favorites }
+            .thenByDescending { it.starred }
             .thenByDescending { it.rating }
             .thenByDescending { it.usageCount }
             .thenBy { it.name }
     )
+    val visibleSites = remember(sorted, filter) {
+        when (filter) {
+            "Starred" -> sorted.filter { it.starred || it.id in favorites }
+            "Movies" -> sorted.filter {
+                it.category.contains("movie", true) || it.category.contains("stream", true) ||
+                    it.category.contains("server", true) || it.category.contains("general", true)
+            }
+            "Series" -> sorted.filter { it.category.contains("tv", true) || it.category.contains("drama", true) }
+            "Anime" -> sorted.filter { it.category.contains("anime", true) || it.category.contains("cartoon", true) }
+            "Live TV" -> sorted.filter { it.category.contains("live tv", true) }
+            "Sports" -> sorted.filter { it.category.contains("sport", true) }
+            else -> sorted
+        }
+    }
 
     // FMHY-sources mode: pull the full public wiki + deeplinks, merge by host.
     LaunchedEffect(settings.catalogProvider, settings.siteDirectoryUrl) {
@@ -114,48 +143,63 @@ fun SitesScreen(nav: NavController) {
         }
     }
 
+    @Composable
+    fun HeaderActions() {
+        PotatoButton(
+            label = if (refreshing) "Refreshing…" else "Refresh",
+            icon = Icons.Filled.Refresh,
+            primary = false
+        ) {
+            scope.launch {
+                refreshing = true
+                val incoming = runCatching { FmhyWiki.refresh() }.getOrDefault(emptyList())
+                val url = settings.siteDirectoryUrl.trim()
+                val extra = if (url.isBlank()) emptyList() else runCatching {
+                    val parsed = SiteDirectory.parse(Http.getText(url))
+                    parsed.sites + parsed.titleSites +
+                        parsed.deeplinks.mapNotNull { SiteDirectory.deeplinkToSite(it) }
+                }.getOrDefault(emptyList())
+                val all = (incoming + extra).distinctBy { it.url.trimEnd('/').lowercase() }
+                all.forEach { ServiceLocator.prefs.addSite(it) }
+                message = "Added/updated ${all.size} sites from the FMHY wiki."
+                refreshing = false
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        PotatoButton("Add site", icon = Icons.Filled.Add, primary = true) { showAdd = true }
+    }
+
     Column(
         Modifier
             .fillMaxSize()
-            .padding(top = 88.dp)
+            .padding(top = if (compact) 8.dp else 88.dp)
     ) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 48.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("Sites", color = PotatoText, style = MaterialTheme.typography.displayMedium)
+        if (compact) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = hPad)) {
+                Text("Sites", color = PotatoText, style = MaterialTheme.typography.headlineMedium)
                 Text(
-                    "Any site becomes a source. Add your own, hold OK to favourite, and PotatoTV will find the player inside.",
+                    "FMHY sources, sorted with the best first. Refresh to import the public wiki.",
                     color = PotatoTextDim,
                     style = MaterialTheme.typography.bodyMedium
                 )
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { HeaderActions() }
             }
-            PotatoButton(
-                label = if (refreshing) "Refreshing…" else "Refresh directory",
-                icon = Icons.Filled.Refresh,
-                primary = false
+        } else {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = hPad),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                scope.launch {
-                    refreshing = true
-                    val incoming = runCatching { FmhyWiki.refresh() }.getOrDefault(emptyList())
-                    val url = settings.siteDirectoryUrl.trim()
-                    val extra = if (url.isBlank()) emptyList() else runCatching {
-                        val parsed = SiteDirectory.parse(Http.getText(url))
-                        parsed.sites + parsed.titleSites +
-                            parsed.deeplinks.mapNotNull { SiteDirectory.deeplinkToSite(it) }
-                    }.getOrDefault(emptyList())
-                    val all = (incoming + extra)
-                        .distinctBy { it.url.trimEnd('/').lowercase() }
-                    all.forEach { ServiceLocator.prefs.addSite(it) }
-                    message = "Added/updated ${all.size} sites from the FMHY wiki."
-                    refreshing = false
+                Column(Modifier.weight(1f)) {
+                    Text("Sites", color = PotatoText, style = MaterialTheme.typography.displayMedium)
+                    Text(
+                        "Any site becomes a source. Add your own, hold OK to favourite, and PotatoTV will find the player inside.",
+                        color = PotatoTextDim,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
+                HeaderActions()
             }
-            Spacer(Modifier.width(12.dp))
-            PotatoButton("Add site", icon = Icons.Filled.Add, primary = true) { showAdd = true }
         }
 
         message?.let {
@@ -163,29 +207,38 @@ fun SitesScreen(nav: NavController) {
                 it,
                 color = PotatoAccent,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(horizontal = 48.dp, vertical = 6.dp)
+                modifier = Modifier.padding(horizontal = hPad, vertical = 6.dp)
             )
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(10.dp))
 
-        if (sorted.isEmpty()) {
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = hPad),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            for (chip in listOf("All", "Starred", "Movies", "Series", "Anime", "Live TV", "Sports")) {
+                item { FilterChipSelected(label = chip, selected = filter == chip) { filter = chip } }
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        if (visibleSites.isEmpty()) {
             EmptyState(
-                title = "No sites yet",
-                message = "Add the address of any streaming site. It will open in the built-in browser with ad blocking, cursor mode and the native player.",
-                actionLabel = "Add your first site"
-            ) { showAdd = true }
+                title = "No sites here",
+                message = "Try another filter, or refresh the FMHY directory."
+            ) { filter = "All" }
         } else {
-            // Group by category and render small favicon cards
+            // Group by category and render compact source cards
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(270.dp),
-                contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
+                columns = GridCells.Adaptive(250.dp),
+                contentPadding = PaddingValues(horizontal = hPad, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                // Group sites by category
-                val byCategory = sorted.groupBy { it.category }
+                val byCategory = visibleSites.groupBy { it.category }
 
                 // Render cards grouped by category
                 for ((category, categorySites) in byCategory) {
@@ -251,6 +304,26 @@ fun SitesScreen(nav: NavController) {
     }
 }
 
+@Composable
+private fun FilterChipSelected(label: String, selected: Boolean, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(9.dp))
+            .background(if (selected) PotatoAccent.copy(alpha = 0.16f) else PotatoBgElevated)
+            .border(1.dp, if (selected || focused) PotatoAccent else PotatoLine, RoundedCornerShape(9.dp))
+            .onFocusChanged { focused = it.isFocused }
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 9.dp)
+    ) {
+        Text(
+            label,
+            color = if (selected) PotatoAccent else PotatoTextDim,
+            style = MaterialTheme.typography.labelLarge
+        )
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SiteCardSmall(
@@ -272,7 +345,7 @@ private fun SiteCardSmall(
     Row(
         Modifier
             .fillMaxWidth()
-            .height(76.dp)
+            .height(88.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(if (focused) PotatoSurface else PotatoBgElevated)
             .border(1.dp, if (focused) PotatoAccent else PotatoLine, RoundedCornerShape(10.dp))
@@ -305,24 +378,34 @@ private fun SiteCardSmall(
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(Modifier.height(2.dp))
+            Text(
+                site.url.substringAfter("://").substringBefore('/'),
+                color = PotatoTextDim,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(2.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                if (site.starred) {
+                    Text("🌟", style = MaterialTheme.typography.labelSmall)
+                }
                 if (site.rating > 0) {
                     Text(
-                        "${site.rating}/18",
+                        "${site.ratingOutOf10}/10",
                         color = PotatoRating,
                         style = MaterialTheme.typography.labelSmall
                     )
                 }
-                Text(
-                    "×${site.usageCount}",
-                    color = PotatoTextDim,
-                    style = MaterialTheme.typography.labelSmall
-                )
-                if (site.searchTemplate.isNotBlank()) {
-                    Text("🔍", color = PotatoTextDim, style = MaterialTheme.typography.labelSmall)
+                if (site.usageCount > 0) {
+                    Text(
+                        "×${site.usageCount}",
+                        color = PotatoTextDim,
+                        style = MaterialTheme.typography.labelSmall
+                    )
                 }
             }
         }

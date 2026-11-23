@@ -7,7 +7,7 @@
 
     <uses-feature
         android:name="android.hardware.touchscreen"
-        android:required="false" />
+        android:required="${touchRequired}" />
     <uses-feature
         android:name="android.software.leanback"
         android:required="false" />
@@ -31,6 +31,7 @@
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|uiMode|density"
             android:exported="true"
             android:launchMode="singleTask"
+            android:screenOrientation="${mainOrientation}"
             android:theme="@style/Theme.PotatoTV">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -44,7 +45,7 @@
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|uiMode|density"
             android:exported="false"
             android:launchMode="singleTop"
-            android:screenOrientation="sensorLandscape"
+            android:screenOrientation="${playerOrientation}"
             android:theme="@style/Theme.PotatoTV" />
 
         <provider

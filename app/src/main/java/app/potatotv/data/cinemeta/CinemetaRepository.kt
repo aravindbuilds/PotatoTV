@@ -5,6 +5,9 @@ import app.potatotv.data.model.MetaDetail
 import app.potatotv.data.model.MetaPreview
 import app.potatotv.data.model.MetaResponse
 import app.potatotv.data.net.Http
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.Json
 import java.net.URLEncoder
 
@@ -46,7 +49,7 @@ class CinemetaRepository {
         return (movies + series).distinctBy { it.id }
     }
 
-    suspend fun homeRows(): List<app.potatotv.data.model.MediaRow> {
+    suspend fun homeRows(onRow: suspend (app.potatotv.data.model.MediaRow) -> Unit = {}): List<app.potatotv.data.model.MediaRow> {
         val year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
         val specs = listOf(
             Triple("Trending Now", "movie/top", "trending-movies"),
@@ -60,13 +63,19 @@ class CinemetaRepository {
             Triple("Animation", "movie/top|genre=Animation", "genre-animation"),
             Triple("Documentary", "series/top|genre=Documentary", "genre-documentary")
         )
-        return specs.map { (title, spec, key) ->
-            val parts = spec.split("|")
-            val type = parts[0].substringBefore("/")
-            val catalog = parts[0].substringAfter("/")
-            val extra = parts.getOrNull(1)?.let { splitExtra(it) }
-            app.potatotv.data.model.MediaRow(title, catalog(type, catalog, extra), key)
-        }.filter { it.items.isNotEmpty() }
+        return coroutineScope {
+            specs.map { (title, spec, key) ->
+                async {
+                    val parts = spec.split("|")
+                    val type = parts[0].substringBefore("/")
+                    val catalog = parts[0].substringAfter("/")
+                    val extra = parts.getOrNull(1)?.let { splitExtra(it) }
+                    val row = app.potatotv.data.model.MediaRow(title, catalog(type, catalog, extra), key)
+                    if (row.items.isNotEmpty()) onRow(row)
+                    row
+                }
+            }.awaitAll().filter { it.items.isNotEmpty() }
+        }
     }
 
     private fun splitExtra(extra: String): String {

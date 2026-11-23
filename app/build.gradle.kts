@@ -14,12 +14,32 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0.0"
+        versionName = "0.01-beta"
 
         vectorDrawables.useSupportLibrary = true
 
         // Optional: point the in-app updater at your own GitHub repository.
         buildConfigField("String", "DEFAULT_UPDATE_REPO", "\"\"")
+    }
+
+    flavorDimensions += "device"
+    productFlavors {
+        create("tv") {
+            dimension = "device"
+            applicationId = "app.potatotv.tv"
+            manifestPlaceholders["mainOrientation"] = "landscape"
+            manifestPlaceholders["playerOrientation"] = "sensorLandscape"
+            manifestPlaceholders["touchRequired"] = "false"
+            resValue("string", "app_name", "PotatoTV")
+        }
+        create("mobile") {
+            dimension = "device"
+            applicationId = "app.potatotv.mobile"
+            manifestPlaceholders["mainOrientation"] = "portrait"
+            manifestPlaceholders["playerOrientation"] = "unspecified"
+            manifestPlaceholders["touchRequired"] = "true"
+            resValue("string", "app_name", "PotatoTV Mobile")
+        }
     }
 
     buildTypes {

@@ -45,12 +45,12 @@ fun MyListScreen(nav: NavController) {
     Column(
         Modifier
             .fillMaxSize()
-            .padding(top = 88.dp)
+            .padding(top = if (app.potatotv.ui.theme.isCompactScreen()) 8.dp else 88.dp)
     ) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 48.dp),
+                .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
@@ -83,7 +83,7 @@ fun MyListScreen(nav: NavController) {
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(158.dp),
-                contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(18.dp),
                 verticalArrangement = Arrangement.spacedBy(22.dp),
                 modifier = Modifier.fillMaxSize()

@@ -138,12 +138,12 @@ fun SearchScreen(nav: NavController) {
     Column(
         Modifier
             .fillMaxSize()
-            .padding(top = 94.dp)
+            .padding(top = if (app.potatotv.ui.theme.isCompactScreen()) 8.dp else 94.dp)
     ) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 48.dp),
+                .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Mascot(58)
@@ -175,7 +175,7 @@ fun SearchScreen(nav: NavController) {
         if (siteMatches.isNotEmpty()) {
             Spacer(Modifier.height(14.dp))
             LazyRow(
-                contentPadding = PaddingValues(horizontal = 48.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(siteMatches, key = { it.id }) { site ->
@@ -218,7 +218,7 @@ fun SearchScreen(nav: NavController) {
                 query.trim().length < 2 -> Column(
                     Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 48.dp),
+                        .padding(horizontal = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Spacer(Modifier.height(70.dp))
@@ -239,7 +239,7 @@ fun SearchScreen(nav: NavController) {
                 }
                 else -> LazyVerticalGrid(
                     columns = GridCells.Adaptive(158.dp),
-                    contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                     verticalArrangement = Arrangement.spacedBy(22.dp),
                     modifier = Modifier.fillMaxSize()

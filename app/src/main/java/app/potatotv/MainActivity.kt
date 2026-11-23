@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -20,6 +21,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.potatotv.ui.browser.BrowserScreen
+import app.potatotv.ui.components.PotatoBottomBar
 import app.potatotv.ui.components.PotatoTopBar
 import app.potatotv.ui.home.HomeScreen
 import app.potatotv.ui.iptv.IptvScreen
@@ -30,6 +32,7 @@ import app.potatotv.ui.sites.SitesScreen
 import app.potatotv.ui.theme.PotatoBg
 import app.potatotv.ui.theme.PotatoTvTheme
 import app.potatotv.ui.theme.ResponsiveTvUi
+import app.potatotv.ui.theme.isCompactScreen
 import app.potatotv.ui.title.TitleScreen
 
 class MainActivity : ComponentActivity() {
@@ -56,16 +59,18 @@ fun PotatoApp() {
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
     val hideChrome = route?.startsWith("browser") == true
+    val compact = isCompactScreen()
 
     Box(
         Modifier
             .fillMaxSize()
             .background(PotatoBg)
     ) {
+        Column(Modifier.fillMaxSize()) {
         NavHost(
             navController = nav,
             startDestination = "home",
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.weight(1f)
         ) {
             composable("home") {
                 HomeScreen(nav)
@@ -114,8 +119,17 @@ fun PotatoApp() {
                 )
             }
         }
+        if (!hideChrome && compact) {
+            PotatoBottomBar(currentRoute = route) { destination ->
+                nav.navigate(destination) {
+                    launchSingleTop = true
+                    popUpTo("home") { inclusive = destination == "home" }
+                }
+            }
+        }
+        }
 
-        if (!hideChrome) {
+        if (!hideChrome && !compact) {
             Box(Modifier.align(Alignment.TopCenter)) {
                 PotatoTopBar(currentRoute = route) { destination ->
                     nav.navigate(destination) {

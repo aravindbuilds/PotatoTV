@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +33,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -96,6 +98,7 @@ import app.potatotv.ui.theme.PotatoRating
 import app.potatotv.ui.theme.PotatoSurface
 import app.potatotv.ui.theme.PotatoText
 import app.potatotv.ui.theme.PotatoTextDim
+import app.potatotv.ui.theme.isCompactScreen
 import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -129,6 +132,8 @@ fun IptvScreen(nav: NavController) {
     var showAdd by remember { mutableStateOf(false) }
     var showCategories by remember { mutableStateOf(false) }
     var showCountries by remember { mutableStateOf(false) }
+    val compact = isCompactScreen()
+    val hPad = if (compact) 16.dp else 48.dp
 
     val voice = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -189,46 +194,70 @@ fun IptvScreen(nav: NavController) {
         }
     }
 
+    @Composable
+    fun HeaderActions() {
+        if (vm.tab != IptvTab.Playlists && filtered.isNotEmpty()) {
+            PotatoButton(
+                label = if (vm.checking) "Testing ${vm.checkDone}/${vm.checkTotal}" else "Check",
+                icon = Icons.Filled.Check,
+                primary = false
+            ) {
+                vm.checkWorking(if (vm.tab == IptvTab.Starred || vm.tab == IptvTab.Working) {
+                    baseChannels.filter { it.id in starred || vm.tab == IptvTab.Working }
+                } else {
+                    filtered
+                })
+            }
+            Spacer(Modifier.width(8.dp))
+        }
+        PotatoButton("Add playlist", icon = Icons.Filled.Add, primary = true) { showAdd = true }
+    }
+
     Column(
         Modifier
             .fillMaxSize()
-            .padding(top = 84.dp)
+            .padding(top = if (compact) 8.dp else 84.dp)
     ) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 48.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Mascot(58)
-            Spacer(Modifier.width(16.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Live TV", color = PotatoText, style = MaterialTheme.typography.displayMedium)
+        if (compact) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = hPad)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Mascot(40)
+                    Spacer(Modifier.width(10.dp))
+                    Text("Live TV", color = PotatoText, style = MaterialTheme.typography.headlineMedium)
+                }
                 Text(
                     when {
-                        vm.activePlaylist != null -> "Playing the “${vm.activePlaylist?.name}” playlist"
-                        data != null -> "${data.channels.size} live channels from iptv-org · ${visiblePlaylists.size} of your playlists"
-                        else -> "Free live TV from iptv-org, plus your own M3U and Xtream playlists"
+                        vm.activePlaylist != null -> "Playing “${vm.activePlaylist?.name}”"
+                        data != null -> "${data.channels.size} channels · ${visiblePlaylists.size} playlists"
+                        else -> "Free live TV and your own playlists"
                     },
                     color = PotatoTextDim,
                     style = MaterialTheme.typography.bodyMedium
                 )
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { HeaderActions() }
             }
-            if (vm.tab != IptvTab.Playlists && filtered.isNotEmpty()) {
-                PotatoButton(
-                    label = if (vm.checking) "Testing ${vm.checkDone}/${vm.checkTotal}" else "Check working",
-                    icon = Icons.Filled.Check,
-                    primary = false
-                ) {
-                    vm.checkWorking(if (vm.tab == IptvTab.Starred || vm.tab == IptvTab.Working) {
-                        baseChannels.filter { it.id in starred || vm.tab == IptvTab.Working }
-                    } else {
-                        filtered
-                    })
+        } else {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = hPad),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Mascot(58)
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Live TV", color = PotatoText, style = MaterialTheme.typography.displayMedium)
+                    Text(
+                        when {
+                            vm.activePlaylist != null -> "Playing the “${vm.activePlaylist?.name}” playlist"
+                            data != null -> "${data.channels.size} live channels from iptv-org · ${visiblePlaylists.size} of your playlists"
+                            else -> "Free live TV from iptv-org, plus your own M3U and Xtream playlists"
+                        },
+                        color = PotatoTextDim,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
-                Spacer(Modifier.width(10.dp))
+                HeaderActions()
             }
-            PotatoButton("Add playlist", icon = Icons.Filled.Add, primary = true) { showAdd = true }
         }
 
         Spacer(Modifier.height(12.dp))
@@ -236,7 +265,8 @@ fun IptvScreen(nav: NavController) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 48.dp),
+                .padding(horizontal = hPad)
+                .then(if (compact) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -269,7 +299,7 @@ fun IptvScreen(nav: NavController) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 48.dp, vertical = 6.dp),
+                    .padding(horizontal = hPad, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (vm.checking) {
@@ -297,7 +327,8 @@ fun IptvScreen(nav: NavController) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 48.dp),
+                    .padding(horizontal = hPad)
+                    .then(if (compact) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -313,7 +344,7 @@ fun IptvScreen(nav: NavController) {
                     },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    modifier = Modifier.weight(1f)
+                    modifier = if (compact) Modifier.width(240.dp) else Modifier.weight(1f)
                 )
                 if (vm.activePlaylist == null) {
                     FilterPill(
@@ -373,7 +404,7 @@ fun IptvScreen(nav: NavController) {
             )
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(218.dp),
-                contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 4.dp, bottom = 60.dp),
+                contentPadding = PaddingValues(start = hPad, end = hPad, top = 4.dp, bottom = 60.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier.fillMaxSize()

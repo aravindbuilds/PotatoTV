@@ -1,6 +1,7 @@
 package app.potatotv.data.model
 
 import kotlinx.serialization.Serializable
+import kotlin.math.roundToInt
 
 @Serializable
 data class MetaPreview(
@@ -92,8 +93,14 @@ data class Site(
     /** Times the site has been opened — drives popularity sorting. */
     val usageCount: Int = 0,
     /** FMHY Stream Site Grading score, 0–18. Zero means not graded. */
-    val rating: Int = 0
+    val rating: Int = 0,
+    /** Sites flagged 🌟/⭐ in the public FMHY wiki. */
+    val starred: Boolean = false
 )
+
+/** FMHY grades out of 18, shown to users as a friendlier 0–10 score. */
+val Site.ratingOutOf10: Int
+    get() = if (rating <= 0) 0 else ((rating / 18f) * 10f).roundToInt().coerceIn(1, 10)
 
 /** A deeplink entry mapping an external URL to a native site/search template.
  *  Used by FMHY sources repo `deeplinks.json`: e.g. {"watch": "https://youtube.com/watch?v=..."}. */

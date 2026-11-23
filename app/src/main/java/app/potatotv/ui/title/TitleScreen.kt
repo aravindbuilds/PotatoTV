@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -59,6 +61,7 @@ import app.potatotv.ServiceLocator
 import app.potatotv.data.model.MetaDetail
 import app.potatotv.data.model.MetaVideo
 import app.potatotv.data.model.Site
+import app.potatotv.data.model.ratingOutOf10
 import app.potatotv.ui.components.EmptyState
 import app.potatotv.ui.components.LoadingState
 import app.potatotv.ui.components.PotatoButton
@@ -528,8 +531,9 @@ private fun SitePickerDialog(
                 } else {
                     LazyColumn(
                         Modifier
-                            .height(360.dp)
-                            .width(470.dp),
+                            .height(300.dp)
+                            .fillMaxWidth()
+                            .widthIn(max = 470.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         items(sorted, key = { it.id }) { site ->
@@ -548,7 +552,7 @@ private fun SitePickerDialog(
                                 Text(site.name, color = PotatoText, style = MaterialTheme.typography.titleMedium)
                                 if (site.rating > 0) {
                                     Spacer(Modifier.width(6.dp))
-                                    Text("${site.rating}/18", color = PotatoRating, fontSize = 12.sp)
+                                    Text("${site.ratingOutOf10}/10", color = PotatoRating, fontSize = 12.sp)
                                 }
                                 if (site.id in favorites) {
                                     Spacer(Modifier.width(6.dp))

@@ -197,7 +197,12 @@ fun SettingsScreen(@Suppress("UNUSED_PARAMETER") nav: NavController) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 88.dp, bottom = 70.dp),
+        contentPadding = PaddingValues(
+            start = if (app.potatotv.ui.theme.isCompactScreen()) 16.dp else 48.dp,
+            end = if (app.potatotv.ui.theme.isCompactScreen()) 16.dp else 48.dp,
+            top = if (app.potatotv.ui.theme.isCompactScreen()) 8.dp else 88.dp,
+            bottom = 70.dp
+        ),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
