@@ -9,7 +9,9 @@ import app.potatotv.ServiceLocator
 import app.potatotv.data.model.AppSettings
 import app.potatotv.data.model.MediaRow
 import app.potatotv.data.model.MetaPreview
+import app.potatotv.data.sites.FmhyWiki
 import app.potatotv.data.sites.SiteDirectory
+import app.potatotv.data.net.Http
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -65,11 +67,16 @@ class HomeViewModel : ViewModel() {
     }
 
     private suspend fun refreshSources(directoryUrl: String) {
+        // 1) The full public FMHY wiki (movies, series, anime, live TV/sports)
+        //    plus deeplink templates merged by host. Fetched on demand only.
+        runCatching { FmhyWiki.refresh() }
+            .getOrDefault(emptyList())
+            .forEach { ServiceLocator.prefs.addSite(it) }
+
+        // 2) Any extra directory the user configured in Settings.
         if (directoryUrl.isBlank()) return
         runCatching {
-            val parsed = SiteDirectory.parse(
-                app.potatotv.data.net.Http.getText(directoryUrl)
-            )
+            val parsed = SiteDirectory.parse(Http.getText(directoryUrl))
             parsed.sites.forEach { ServiceLocator.prefs.addSite(it) }
             parsed.titleSites.forEach { ServiceLocator.prefs.addSite(it) }
             parsed.deeplinks

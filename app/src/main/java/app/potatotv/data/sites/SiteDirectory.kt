@@ -90,7 +90,9 @@ object SiteDirectory {
         val entry = value as? JsonObject ?: return@mapNotNull null
         val movie = (entry["movie"] as? JsonPrimitive)?.stringValue().orEmpty()
         val tv = (entry["tv"] as? JsonPrimitive)?.stringValue().orEmpty()
-        if (movie.isBlank() && tv.isBlank()) return@mapNotNull null
+        val episode = (entry["episode"] as? JsonPrimitive)?.stringValue().orEmpty()
+        val anime = (entry["anime"] as? JsonPrimitive)?.stringValue().orEmpty()
+        if (movie.isBlank() && tv.isBlank() && episode.isBlank() && anime.isBlank()) return@mapNotNull null
         val root = "https://$host"
         Site(
             id = "fmhy-" + host.hashCode(),
@@ -98,7 +100,9 @@ object SiteDirectory {
             url = root,
             searchTemplate = if (movie.isNotBlank()) root + movie else root + tv,
             movieTemplate = if (movie.isNotBlank()) root + movie else "",
-            tvTemplate = if (tv.isNotBlank()) root + tv else ""
+            tvTemplate = if (tv.isNotBlank()) root + tv else "",
+            episodeTemplate = if (episode.isNotBlank()) root + episode else "",
+            animeTemplate = if (anime.isNotBlank()) root + anime else ""
         )
     }
 

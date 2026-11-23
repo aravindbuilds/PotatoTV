@@ -127,6 +127,7 @@ import app.potatotv.ui.theme.PotatoSurface
 import app.potatotv.ui.theme.PotatoText
 import app.potatotv.ui.theme.PotatoTextDim
 import app.potatotv.ui.theme.PotatoTvTheme
+import app.potatotv.ui.theme.ResponsiveTvUi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
@@ -204,18 +205,20 @@ class PlayerActivity : ComponentActivity() {
         }
 
         setContent {
-            PotatoTvTheme {
-                PlayerScreen(
-                    player = player,
-                    title = title,
-                    initialUrl = url,
-                    initialKind = kind,
-                    isLive = isLive,
-                    mediaKey = mediaKey,
-                    onBack = { finish() },
-                    onSave = { position, duration -> saveProgress(position, duration) },
-                    onScrobble = { scrobble() }
-                )
+            ResponsiveTvUi {
+                PotatoTvTheme {
+                    PlayerScreen(
+                        player = player,
+                        title = title,
+                        initialUrl = url,
+                        initialKind = kind,
+                        isLive = isLive,
+                        mediaKey = mediaKey,
+                        onBack = { finish() },
+                        onSave = { position, duration -> saveProgress(position, duration) },
+                        onScrobble = { scrobble() }
+                    )
+                }
             }
         }
     }

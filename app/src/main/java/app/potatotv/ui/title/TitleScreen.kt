@@ -128,7 +128,15 @@ fun TitleScreen(nav: NavController, type: String, id: String) {
             " S%02dE%02d".format(episode.season, episode.episode)
         } else ""
         val query = detail.name + suffix
-        val url = buildSiteUrl(site, query, detail.id, detail.moviedbId, detail.type)
+        val url = buildSiteUrl(
+            site = site,
+            query = query,
+            imdb = detail.id,
+            tmdb = detail.moviedbId,
+            type = detail.type,
+            season = episode?.season,
+            episode = episode?.episode
+        )
         showSites = false
         pendingEpisode = null
         nav.navigate("browser?url=${URLEncoder.encode(url, "UTF-8")}&name=${URLEncoder.encode(site.name, "UTF-8")}&siteId=${URLEncoder.encode(site.id, "UTF-8")}")
@@ -488,7 +496,11 @@ private fun SitePickerDialog(
     onAddSite: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val sorted = sites.sortedWith(compareByDescending<Site> { it.id in favorites }.thenBy { it.name })
+    val sorted = sites.sortedWith(
+        compareByDescending<Site> { it.id in favorites }
+            .thenByDescending { it.rating }
+            .thenBy { it.name }
+    )
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             color = PotatoBgElevated,
@@ -534,6 +546,10 @@ private fun SitePickerDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(site.name, color = PotatoText, style = MaterialTheme.typography.titleMedium)
+                                if (site.rating > 0) {
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("${site.rating}/18", color = PotatoRating, fontSize = 12.sp)
+                                }
                                 if (site.id in favorites) {
                                     Spacer(Modifier.width(6.dp))
                                     Text("★", color = PotatoRating, fontSize = 12.sp)
@@ -560,34 +576,39 @@ private fun buildSiteUrl(
     query: String,
     imdb: String,
     tmdb: Int?,
-    type: String
+    type: String,
+    season: Int? = null,
+    episode: Int? = null
 ): String {
     val q = URLEncoder.encode(query, "UTF-8").replace("+", "%20")
+    fun fill(template: String): String = template
+        .replace("{tmdb}", tmdb?.toString().orEmpty())
+        .replace("{season}", season?.toString().orEmpty())
+        .replace("{episode}", episode?.toString().orEmpty())
+        .replace("{q}", q)
+        .replace("{title}", q)
+        .replace("{imdb}", imdb)
 
-    // FMHY deeplink sites address a title page directly by TMDB id. Prefer the
-    // template that matches the media type, and fall back to the site root when
-    // Cinemeta has no moviedb_id for this title.
+    // AnantPlay episode templates land straight on the selected episode.
+    if (tmdb != null && season != null && episode != null && site.episodeTemplate.isNotBlank()) {
+        return fill(site.episodeTemplate)
+    }
+
+    // FMHY / AnantPlay title-page templates address a title directly by TMDB id.
     val deeplink = when {
         type == "series" || type == "tv" -> site.tvTemplate.ifBlank { site.movieTemplate }
         else -> site.movieTemplate.ifBlank { site.tvTemplate }
     }
     if (deeplink.isNotBlank()) {
         if (tmdb == null) return site.url
-        return deeplink
-            .replace("{tmdb}", tmdb.toString())
-            .replace("{q}", q)
-            .replace("{title}", q)
+        return fill(deeplink)
     }
 
     val template = site.searchTemplate
     if (template.isBlank()) return site.url
-    // A template that still needs a TMDB id cannot be resolved without one.
     if (template.contains("{tmdb}")) {
-        return if (tmdb == null) site.url else template.replace("{tmdb}", tmdb.toString())
+        return if (tmdb == null) site.url else fill(template)
     }
-    return template
-        .replace("{q}", q)
-        .replace("{imdb}", imdb)
-        .replace("{title}", q)
+    return fill(template)
 }
 

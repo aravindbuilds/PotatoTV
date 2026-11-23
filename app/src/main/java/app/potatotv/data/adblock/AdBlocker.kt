@@ -40,7 +40,7 @@ class AdBlocker(private val context: Context) {
     fun isAdHost(host: String?): Boolean {
         if (host.isNullOrBlank()) return false
         load()
-        val clean = host.lowercase().trimEnd('.')
+        var clean = host.lowercase().trimEnd('.')
         // Direct match against full domain
         if (clean in domains) return true
         // Match against subdomains: e.g. great.googleadservices.com → googleadservices.com

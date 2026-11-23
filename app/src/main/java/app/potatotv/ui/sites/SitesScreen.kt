@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,6 +62,7 @@ import app.potatotv.ServiceLocator
 import app.potatotv.data.model.AppSettings
 import app.potatotv.data.model.Site
 import app.potatotv.data.net.Http
+import app.potatotv.data.sites.FmhyWiki
 import app.potatotv.data.sites.SiteDirectory
 import app.potatotv.ui.components.EmptyState
 import app.potatotv.ui.components.PotatoButton
@@ -86,30 +88,30 @@ fun SitesScreen(nav: NavController) {
     var refreshing by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
 
-    // Sort sites: favorites first, then by usage count descending, then alphabetically
-    val sorted = sites.sortedWith(compareByDescending { it.id in favorites }.thenByDescending { it.usageCount }.thenBy { it.name })
+    // Favourites first, then FMHY grading score (18 best), then popularity.
+    val sorted = sites.sortedWith(
+        compareByDescending<Site> { it.id in favorites }
+            .thenByDescending { it.rating }
+            .thenByDescending { it.usageCount }
+            .thenBy { it.name }
+    )
 
-    // FMHY-sources mode: pull deeplinks from the configured directory and merge
-    // them into the local site list once per URL change.
+    // FMHY-sources mode: pull the full public wiki + deeplinks, merge by host.
     LaunchedEffect(settings.catalogProvider, settings.siteDirectoryUrl) {
         if (settings.catalogProvider != "fmhy-sources") return@LaunchedEffect
+        runCatching { FmhyWiki.refresh() }
+            .getOrDefault(emptyList())
+            .forEach { ServiceLocator.prefs.addSite(it) }
         val url = settings.siteDirectoryUrl.trim()
-        if (url.isBlank()) return@LaunchedEffect
-        runCatching { SiteDirectory.parse(Http.getText(url)) }
-            .onSuccess { parsed ->
-                val existing = sites.map { it.id }.toSet()
-                parsed.sites
-                    .filterNot { it.id in existing }
-                    .forEach { ServiceLocator.prefs.addSite(it) }
-                parsed.titleSites
-                    .filterNot { it.id in existing }
-                    .forEach { ServiceLocator.prefs.addSite(it) }
-                parsed.deeplinks
-                    .mapNotNull { SiteDirectory.deeplinkToSite(it) }
-                    .filterNot { it.id in existing }
-                    .forEach { ServiceLocator.prefs.addSite(it) }
-            }
-            .onFailure { message = "Deeplink refresh failed: ${it.message}" }
+        if (url.isNotBlank()) {
+            runCatching { SiteDirectory.parse(Http.getText(url)) }
+                .getOrDefault(SiteDirectory.Parsed())
+                .let { parsed ->
+                    (parsed.sites + parsed.titleSites +
+                        parsed.deeplinks.mapNotNull { SiteDirectory.deeplinkToSite(it) })
+                        .forEach { ServiceLocator.prefs.addSite(it) }
+                }
+        }
     }
 
     Column(
@@ -136,28 +138,19 @@ fun SitesScreen(nav: NavController) {
                 icon = Icons.Filled.Refresh,
                 primary = false
             ) {
-                if (settings.siteDirectoryUrl.isBlank()) {
-                    Toast.makeText(context, "Add a directory JSON URL in Settings first.", Toast.LENGTH_LONG).show()
-                    return@PotatoButton
-                }
                 scope.launch {
                     refreshing = true
-                    runCatching {
-                        val parsed = SiteDirectory.parse(Http.getText(settings.siteDirectoryUrl.trim()))
-                        parsed.sites + parsed.titleSites
-                    }.onSuccess { incoming ->
-                        if (incoming.isEmpty()) {
-                            message = "The directory returned no sites."
-                        } else {
-                            val merged = (sites + incoming)
-                                .filter { it.url.startsWith("http") }
-                                .distinctBy { it.url.trimEnd('/').lowercase() }
-                            ServiceLocator.prefs.saveSites(merged)
-                            message = "Added ${incoming.size} site(s) from the directory."
-                        }
-                    }.onFailure {
-                        message = "Directory fetch failed: ${it.message}"
-                    }
+                    val incoming = runCatching { FmhyWiki.refresh() }.getOrDefault(emptyList())
+                    val url = settings.siteDirectoryUrl.trim()
+                    val extra = if (url.isBlank()) emptyList() else runCatching {
+                        val parsed = SiteDirectory.parse(Http.getText(url))
+                        parsed.sites + parsed.titleSites +
+                            parsed.deeplinks.mapNotNull { SiteDirectory.deeplinkToSite(it) }
+                    }.getOrDefault(emptyList())
+                    val all = (incoming + extra)
+                        .distinctBy { it.url.trimEnd('/').lowercase() }
+                    all.forEach { ServiceLocator.prefs.addSite(it) }
+                    message = "Added/updated ${all.size} sites from the FMHY wiki."
                     refreshing = false
                 }
             }
@@ -185,10 +178,10 @@ fun SitesScreen(nav: NavController) {
         } else {
             // Group by category and render small favicon cards
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(80.dp),
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                columns = GridCells.Adaptive(270.dp),
+                contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
                 // Group sites by category
@@ -198,19 +191,19 @@ fun SitesScreen(nav: NavController) {
                 for ((category, categorySites) in byCategory) {
                     // Category header
                     if (categorySites.isNotEmpty()) {
-                        item {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
                             Box(
                                 Modifier
                                     .fillMaxWidth()
-                                    .height(24.dp)
+                                    .height(26.dp)
                                     .background(PotatoBgElevated)
                                     .border(1.dp, PotatoLine, RoundedCornerShape(8.dp))
                             ) {
                                 Text(
-                                    category.toUpperCase(),
+                                    category.uppercase(),
                                     color = PotatoTextDim,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.padding(horizontal = 8.dp)
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(horizontal = 10.dp)
                                 )
                             }
                         }
@@ -276,33 +269,33 @@ private fun SiteCardSmall(
         .joinToString("") { it.first().uppercase().toString() }
         .takeIf { it.isNotEmpty() } ?: site.id.substringBefore('-').uppercase()
 
-    Column(
+    Row(
         Modifier
             .fillMaxWidth()
-            .height(64.dp)
+            .height(76.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(if (focused) PotatoSurface else PotatoBgElevated)
             .border(1.dp, if (focused) PotatoAccent else PotatoLine, RoundedCornerShape(10.dp))
             .onFocusChanged { focused = it.isFocused }
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(8.dp)
+            .padding(horizontal = 9.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // Favicon placeholder (initials) with colored background
         Box(
             Modifier
                 .size(34.dp)
                 .clip(RoundedCornerShape(6.dp))
-                .background(PotatoSurface.copy(alpha = 0.85f))
+                .background(PotatoSurface.copy(alpha = 0.85f)),
+            contentAlignment = Alignment.Center
         ) {
             Text(
                 initials,
                 color = PotatoText,
                 style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.align(Alignment.Center),
                 fontWeight = FontWeight.Bold
             )
         }
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 site.name,
@@ -312,34 +305,37 @@ private fun SiteCardSmall(
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(Modifier.height(2.dp))
-            Text(
-                "×${site.usageCount}",
-                color = PotatoTextDim,
-                style = MaterialTheme.typography.labelSmall
-            )
-            if (site.searchTemplate.isNotBlank()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                if (site.rating > 0) {
+                    Text(
+                        "${site.rating}/18",
+                        color = PotatoRating,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+                Text(
+                    "×${site.usageCount}",
+                    color = PotatoTextDim,
+                    style = MaterialTheme.typography.labelSmall
+                )
+                if (site.searchTemplate.isNotBlank()) {
                     Text("🔍", color = PotatoTextDim, style = MaterialTheme.typography.labelSmall)
-                    Text("Search", color = PotatoTextDim, style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
-        Spacer(Modifier.height(2.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Spacer(Modifier.weight(1f))
-            IconButton(onClick = onFavorite) {
-                Icon(
-                    if (favorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                    contentDescription = "Favourite",
-                    tint = if (favorite) PotatoRating else PotatoTextDim
-                )
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = "Remove", tint = PotatoTextDim, modifier = Modifier.size(16.dp))
-            }
+        IconButton(onClick = onFavorite) {
+            Icon(
+                if (favorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                contentDescription = "Favourite",
+                tint = if (favorite) PotatoRating else PotatoTextDim,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        IconButton(onClick = onDelete) {
+            Icon(Icons.Filled.Delete, contentDescription = "Remove", tint = PotatoTextDim, modifier = Modifier.size(16.dp))
         }
     }
 }

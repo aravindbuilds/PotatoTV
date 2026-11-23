@@ -303,8 +303,14 @@ fun SettingsScreen(@Suppress("UNUSED_PARAMETER") nav: NavController) {
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    "Deeplinks: " +
-                        app.potatotv.data.sources.BakedSources.DEEPLINKS_URL,
+                    "Title templates: " +
+                        app.potatotv.data.sources.BakedSources.DEEPLINKS_URL + " and " +
+                        app.potatotv.data.sources.BakedSources.ANANT_DEEPLINKS_URL,
+                    color = PotatoTextDim,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    "Site list: " + app.potatotv.data.sites.FmhyWiki.STREAMING_URL,
                     color = PotatoTextDim,
                     style = MaterialTheme.typography.bodyMedium
                 )

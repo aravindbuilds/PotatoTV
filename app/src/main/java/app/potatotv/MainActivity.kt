@@ -29,6 +29,7 @@ import app.potatotv.ui.settings.SettingsScreen
 import app.potatotv.ui.sites.SitesScreen
 import app.potatotv.ui.theme.PotatoBg
 import app.potatotv.ui.theme.PotatoTvTheme
+import app.potatotv.ui.theme.ResponsiveTvUi
 import app.potatotv.ui.title.TitleScreen
 
 class MainActivity : ComponentActivity() {
@@ -40,8 +41,10 @@ class MainActivity : ComponentActivity() {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
         setContent {
-            PotatoTvTheme {
-                PotatoApp()
+            ResponsiveTvUi {
+                PotatoTvTheme {
+                    PotatoApp()
+                }
             }
         }
     }

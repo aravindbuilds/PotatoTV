@@ -83,12 +83,16 @@ data class Site(
     /** FMHY deeplink templates, filled from the source directory. */
     val movieTemplate: String = "",
     val tvTemplate: String = "",
+    val episodeTemplate: String = "",
+    val animeTemplate: String = "",
     /** Category for popularity ranking and grouping: movie / series / sports / documentary / livetv / general. */
     val category: String = "general",
     /** Optional favicon URL shown on the site card. */
     val favicon: String? = null,
     /** Times the site has been opened — drives popularity sorting. */
-    val usageCount: Int = 0
+    val usageCount: Int = 0,
+    /** FMHY Stream Site Grading score, 0–18. Zero means not graded. */
+    val rating: Int = 0
 )
 
 /** A deeplink entry mapping an external URL to a native site/search template.
@@ -187,7 +191,7 @@ data class AppSettings(
     val updateRepo: String = "",
     val siteDirectoryUrl: String = "",
     /** "cinemeta" — Stremio/Cinemeta metadata; "fmhy-sources" — pull deeplinks + movie lists from FMHY. */
-    val catalogProvider: String = "cinemeta",
+    val catalogProvider: String = "fmhy-sources",
     /** Reveals the baked-in 18+ playlists. Off by default. */
     val adultSources: Boolean = false,
     val proxyEnabled: Boolean = false,

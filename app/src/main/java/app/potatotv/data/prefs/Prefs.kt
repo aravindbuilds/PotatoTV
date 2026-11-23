@@ -53,7 +53,7 @@ class Prefs(private val context: Context) {
             simklToken = p[SIMKL_TOKEN] ?: "",
             updateRepo = p[UPDATE_REPO] ?: "",
             siteDirectoryUrl = p[SITE_DIRECTORY] ?: BakedSources.DEEPLINKS_URL,
-            catalogProvider = p[CATALOG_PROVIDER] ?: "cinemeta",
+            catalogProvider = p[CATALOG_PROVIDER] ?: "fmhy-sources",
             adultSources = p[ADULT_SOURCES] ?: false,
             proxyEnabled = p[PROXY_ENABLED] ?: false,
             proxyHost = p[PROXY_HOST] ?: "",
