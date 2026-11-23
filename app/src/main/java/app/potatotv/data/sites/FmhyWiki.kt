@@ -123,7 +123,8 @@ object FmhyWiki {
                             url = url.substringBefore('?').trimEnd('/'),
                             category = categoryFor(category, line),
                             searchTemplate = "",
-                            starred = starred
+                            starred = starred,
+                            order = out.size
                         )
                     }
                 }

@@ -242,6 +242,28 @@
 
   // Override navigation-related methods to intercept redirects to ad hosts.
   function blockRedirectsToAdHosts() {
+    // Never allow script-opened windows/tabs, and never follow _blank links:
+    // streaming sites use both for pop-under and redirect ads.
+    try {
+      window.open = function () {
+        try { console.warn('[PotatoTV] blocked popup window'); } catch (e) {}
+        return null;
+      };
+    } catch (e) {}
+    try {
+      document.addEventListener('click', function (e) {
+        var a = e.target && e.target.closest ? e.target.closest('a') : null;
+        if (a && a.getAttribute && a.getAttribute('target') === '_blank') {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, true);
+    } catch (e) {}
+    try {
+      var refreshes = document.querySelectorAll('meta[http-equiv="refresh"]');
+      for (var i = 0; i < refreshes.length; i++) refreshes[i].removeAttribute('http-equiv');
+    } catch (e) {}
+
     var origOpen = XMLHttpRequest.prototype.open;
     try {
       XMLHttpRequest.prototype.open = function (method, url) {
@@ -588,7 +610,16 @@
 
   /* --------------------------------------------------------------- startup */
   // Expose internals for the host app (PotatoBridge injection point).
-  window.__potatoAdHosts = window.__potatoAdHosts || [];
+  window.__potatoAdHosts = window.__potatoAdHosts && window.__potatoAdHosts.length
+    ? window.__potatoAdHosts
+    : [
+        'doubleclick.net', 'googlesyndication.com', 'googleadservices.com',
+        'adnxs.com', 'adservice.google.com', 'amazon-adsystem.com',
+        'ads-twitter.com', 'connect.facebook.net', 'scorecardresearch.com',
+        'quantserve.com', 'taboola.com', 'outbrain.com', 'popads.net',
+        'exoclick.com', 'juicyads.com', 'propellerads.com', 'adf.ly',
+        'pubmatic.com', 'rubiconproject.com', 'casalemedia.com', 'criteo.com'
+      ];
   window.__potatoDoHideAds = hideAds;
   window.__potatoDoBlockRedirects = blockRedirectsToAdHosts;
 

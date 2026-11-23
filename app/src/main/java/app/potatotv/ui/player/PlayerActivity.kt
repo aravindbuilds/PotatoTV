@@ -660,16 +660,6 @@ private fun PlayerScreen(
                     Box(
                         Modifier
                             .fillMaxWidth()
-                            .height(148.dp)
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(Color.Black.copy(alpha = 0.86f), Color.Transparent)
-                                )
-                            )
-                    )
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
                             .height(190.dp)
                             .align(Alignment.BottomCenter)
                             .background(
@@ -686,20 +676,7 @@ private fun PlayerScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         PlayerIconButton(Icons.Filled.ArrowBack, "Back") { onBack() }
-                        Spacer(Modifier.width(14.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                title,
-                                color = Color.White,
-                                style = MaterialTheme.typography.titleLarge,
-                                maxLines = 1
-                            )
-                            Text(
-                                if (isLive) "LIVE" else "PotatoTV Player",
-                                color = if (isLive) PotatoDanger else PotatoTextDim,
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                        }
+                        Spacer(Modifier.weight(1f))
                         if (hasSite) {
                             PlayerIconButton(Icons.Filled.HighQuality, "Servers") { panel = PlayerPanel.Servers }
                         }

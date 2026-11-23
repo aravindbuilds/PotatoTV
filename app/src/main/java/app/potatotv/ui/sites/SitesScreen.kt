@@ -63,6 +63,7 @@ import app.potatotv.ServiceLocator
 import app.potatotv.data.model.AppSettings
 import app.potatotv.data.model.Site
 import app.potatotv.data.model.ratingOutOf10
+import app.potatotv.data.model.popularityScore
 import app.potatotv.data.net.Http
 import app.potatotv.data.sites.FmhyWiki
 import app.potatotv.data.sites.SiteDirectory
@@ -102,12 +103,10 @@ fun SitesScreen(nav: NavController) {
         }
     }
 
-    // Favourites, then FMHY's 🌟/⭐ picks, then grading and popularity.
+    // Favourites, frequent sites, FMHY stars and 10/10 first; wiki order breaks ties.
     val sorted = sites.sortedWith(
-        compareByDescending<Site> { it.id in favorites }
-            .thenByDescending { it.starred }
-            .thenByDescending { it.rating }
-            .thenByDescending { it.usageCount }
+        compareByDescending<Site> { it.popularityScore(favorites) }
+            .thenBy { it.order }
             .thenBy { it.name }
     )
     val visibleSites = remember(sorted, filter) {

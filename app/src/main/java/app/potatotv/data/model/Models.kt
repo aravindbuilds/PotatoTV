@@ -94,6 +94,8 @@ data class Site(
     val usageCount: Int = 0,
     /** FMHY Stream Site Grading score, 0–18. Zero means not graded. */
     val rating: Int = 0,
+    /** FMHY wiki order — lower means it appeared earlier in Streaming.md. */
+    val order: Int = Int.MAX_VALUE,
     /** Sites flagged 🌟/⭐ in the public FMHY wiki. */
     val starred: Boolean = false
 )
@@ -101,6 +103,24 @@ data class Site(
 /** FMHY grades out of 18, shown to users as a friendlier 0–10 score. */
 val Site.ratingOutOf10: Int
     get() = if (rating <= 0) 0 else ((rating / 18f) * 10f).roundToInt().coerceIn(1, 10)
+
+/** True for sites that can deep-link a title from Cinemeta/AnantPlay metadata. */
+val Site.canPlayTitle: Boolean
+    get() = movieTemplate.isNotBlank() || tvTemplate.isNotBlank() ||
+        episodeTemplate.isNotBlank() || animeTemplate.isNotBlank()
+
+/**
+ * Ranking: user favourites and frequently opened sites first, then FMHY stars
+ * and 10/10 sites, with the exact Streaming.md order breaking remaining ties.
+ */
+fun Site.popularityScore(favoriteIds: Set<String>): Int {
+    val favorite = id in favoriteIds
+    val usage = minOf(usageCount, 50) * 10_000
+    val star = if (starred) 5_000 else 0
+    val grade = ratingOutOf10 * 1_000
+    val wiki = maxOf(0, 10_000 - order)
+    return (if (favorite) 1_000_000 else 0) + usage + star + grade + wiki
+}
 
 /** A deeplink entry mapping an external URL to a native site/search template.
  *  Used by FMHY sources repo `deeplinks.json`: e.g. {"watch": "https://youtube.com/watch?v=..."}. */

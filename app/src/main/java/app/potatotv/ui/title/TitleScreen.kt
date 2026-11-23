@@ -62,6 +62,8 @@ import app.potatotv.data.model.MetaDetail
 import app.potatotv.data.model.MetaVideo
 import app.potatotv.data.model.Site
 import app.potatotv.data.model.ratingOutOf10
+import app.potatotv.data.model.canPlayTitle
+import app.potatotv.data.model.popularityScore
 import app.potatotv.ui.components.EmptyState
 import app.potatotv.ui.components.LoadingState
 import app.potatotv.ui.components.PotatoButton
@@ -75,6 +77,7 @@ import app.potatotv.ui.theme.PotatoRating
 import app.potatotv.ui.theme.PotatoSurface
 import app.potatotv.ui.theme.PotatoText
 import app.potatotv.ui.theme.PotatoTextDim
+import app.potatotv.ui.theme.isCompactScreen
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
@@ -125,6 +128,11 @@ fun TitleScreen(nav: NavController, type: String, id: String) {
     val saved = progress[detail.id]
     val seasons = detail.seasons()
     val episodes = detail.videos.filter { it.season == season }.sortedBy { it.episode ?: 0 }
+    val sorted = sites.filter { it.canPlayTitle }.sortedWith(
+        compareByDescending<Site> { it.popularityScore(favorites) }
+            .thenBy { it.order }
+            .thenBy { it.name }
+    )
 
     fun openSite(site: Site, episode: MetaVideo?) {
         val suffix = if (episode != null && episode.season != null && episode.episode != null) {
@@ -143,6 +151,25 @@ fun TitleScreen(nav: NavController, type: String, id: String) {
         showSites = false
         pendingEpisode = null
         nav.navigate("browser?url=${URLEncoder.encode(url, "UTF-8")}&name=${URLEncoder.encode(site.name, "UTF-8")}&siteId=${URLEncoder.encode(site.id, "UTF-8")}")
+    }
+
+    if (isCompactScreen()) {
+        TitleScreenMobile(
+            detail = detail,
+            sites = sorted,
+            favorites = favorites,
+            inList = inList,
+            saved = saved,
+            episodes = episodes,
+            season = season,
+            onSeason = { season = it },
+            onOpenSite = { site, ep -> openSite(site, ep) },
+            onToggleList = {
+                scope.launch { ServiceLocator.prefs.toggleMyList(detail.toPreview()) }
+            },
+            onBack = { nav.popBackStack() }
+        )
+        return
     }
 
     LazyColumn(
@@ -376,7 +403,7 @@ fun TitleScreen(nav: NavController, type: String, id: String) {
                 )
                 Spacer(Modifier.height(14.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(sites.sortedByDescending { it.id in favorites }) { site ->
+                    items(sorted) { site ->
                         SiteChip(site, site.id in favorites) {
                             pendingEpisode = null
                             showSites = true
@@ -389,7 +416,7 @@ fun TitleScreen(nav: NavController, type: String, id: String) {
 
     if (showSites) {
         SitePickerDialog(
-            sites = sites,
+            sites = sorted,
             favorites = favorites,
             title = detail.name,
             episode = pendingEpisode,
@@ -499,9 +526,9 @@ private fun SitePickerDialog(
     onAddSite: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val sorted = sites.sortedWith(
-        compareByDescending<Site> { it.id in favorites }
-            .thenByDescending { it.rating }
+    val sorted = sites.filter { it.canPlayTitle }.sortedWith(
+        compareByDescending<Site> { it.popularityScore(favorites) }
+            .thenBy { it.order }
             .thenBy { it.name }
     )
     Dialog(onDismissRequest = onDismiss) {
