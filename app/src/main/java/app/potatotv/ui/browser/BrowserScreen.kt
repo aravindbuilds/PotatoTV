@@ -236,7 +236,7 @@ fun BrowserScreen(
                 val target = request?.url ?: return false
                 val scheme = target.scheme?.lowercase().orEmpty()
                 if (scheme != "http" && scheme != "https") return true
-                if (adBlockEnabled.value && ServiceLocator.adBlocker.isAdHost(target.host)) {
+                if (adBlockEnabled.value && ServiceLocator.adBlocker.isBlocked(target.toString())) {
                     BrowserSession.updateBlocked(ServiceLocator.adBlocker.blockedCount.get())
                     return true
                 }
@@ -317,6 +317,7 @@ fun BrowserScreen(
         } else null
 
         BrowserSession.setPage(name.ifBlank { startUrl }, startUrl)
+        BrowserSession.markUserInteraction()
         webView.loadUrl(startUrl)
 
         onDispose {
@@ -512,31 +513,6 @@ fun BrowserScreen(
                     .fillMaxWidth()
                     .height(2.dp)
             )
-
-            Row(
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .background(Color(0xB30E0E0E))
-                    .padding(horizontal = 16.dp, vertical = 7.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    page.title.ifBlank { name.ifBlank { startUrl } },
-                    color = PotatoText,
-                    style = MaterialTheme.typography.labelLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                if (cursorOn) {
-                    Text("CURSOR", color = PotatoAccent, fontSize = 10.sp)
-                    Spacer(Modifier.width(10.dp))
-                }
-                if (stats.streams > 0) {
-                    Text("${stats.streams} stream${if (stats.streams == 1) "" else "s"}", color = PotatoRating, fontSize = 10.sp)
-                }
-            }
 
             if (loadError != null) {
                 Surface(

@@ -273,7 +273,7 @@ fun TitleScreenMobile(
                 Spacer(Modifier.height(20.dp))
                 Text("Play on a source", color = PotatoText, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "${sites.size} title-matched sites from the FMHY / AnantPlay deeplinks",
+                    "${sites.size} title-matched sources ready to play",
                     color = PotatoTextDim,
                     style = MaterialTheme.typography.labelMedium
                 )

@@ -308,9 +308,8 @@ fun SettingsScreen(@Suppress("UNUSED_PARAMETER") nav: NavController) {
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    "Title templates: " +
-                        app.potatotv.data.sources.BakedSources.DEEPLINKS_URL + " and " +
-                        app.potatotv.data.sources.BakedSources.ANANT_DEEPLINKS_URL,
+                    "Title-page templates are fetched automatically from the built-in source list. " +
+                        "Only sites that can open this exact title are offered for playback.",
                     color = PotatoTextDim,
                     style = MaterialTheme.typography.bodyMedium
                 )

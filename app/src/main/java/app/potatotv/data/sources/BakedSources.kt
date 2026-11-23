@@ -17,10 +17,6 @@ object BakedSources {
     const val DEEPLINKS_URL =
         "https://raw.githubusercontent.com/fmhyplay/sources/main/deeplinks.json"
 
-    /** Richer title/episode/anime templates from AnantPlay. */
-    const val ANANT_DEEPLINKS_URL =
-        "https://raw.githubusercontent.com/AnantPlay/sources/refs/heads/main/deeplinks.json"
-
     data class Entry(
         val label: String,
         val url: String,

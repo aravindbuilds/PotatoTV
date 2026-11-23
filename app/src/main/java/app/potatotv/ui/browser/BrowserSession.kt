@@ -51,6 +51,18 @@ sealed interface BrowserEvent {
  */
 object BrowserSession {
 
+    /** Timestamp of the last real user tap in the WebView, for redirect checks. */
+    @Volatile
+    var lastUserClickAt: Long = 0L
+        private set
+
+    fun markUserInteraction() {
+        lastUserClickAt = System.currentTimeMillis()
+    }
+
+    fun isRecentUserClick(): Boolean =
+        System.currentTimeMillis() - lastUserClickAt < 2_000L
+
     @Volatile
     private var webViewRef: WeakReference<WebView>? = null
 
@@ -167,6 +179,7 @@ object BrowserSession {
                         obj["url"]?.jsonPrimitive?.content.orEmpty()
                     )
                 }
+                "userclick" -> markUserInteraction()
                 "cursor" -> {
                     val on = obj["on"]?.jsonPrimitive?.content?.toBooleanStrictOrNull() ?: false
                     _events.tryEmit(BrowserEvent.Cursor(on))

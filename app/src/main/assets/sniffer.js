@@ -242,26 +242,37 @@
 
   // Override navigation-related methods to intercept redirects to ad hosts.
   function blockRedirectsToAdHosts() {
-    // Never allow script-opened windows/tabs, and never follow _blank links:
-    // streaming sites use both for pop-under and redirect ads.
+    // Ad-host popups are dropped. Legitimate "open player" popups are brought
+    // into the same tab so the video page still loads.
     try {
-      window.open = function () {
-        try { console.warn('[PotatoTV] blocked popup window'); } catch (e) {}
-        return null;
+      window.open = function (url) {
+        var u = typeof url === 'string' ? url : (url && url.url);
+        if (u && isAdHost(String(u).split('?')[0].split('#')[0])) {
+          try { console.warn('[PotatoTV] blocked ad popup:', u); } catch (e) {}
+          return null;
+        }
+        if (u) {
+          try { window.location.href = u; } catch (e) {}
+        }
+        return window;
       };
     } catch (e) {}
     try {
       document.addEventListener('click', function (e) {
         var a = e.target && e.target.closest ? e.target.closest('a') : null;
         if (a && a.getAttribute && a.getAttribute('target') === '_blank') {
-          e.preventDefault();
-          e.stopPropagation();
+          a.setAttribute('target', '_self');
         }
+        toTop({ type: 'userclick' });
       }, true);
     } catch (e) {}
     try {
       var refreshes = document.querySelectorAll('meta[http-equiv="refresh"]');
-      for (var i = 0; i < refreshes.length; i++) refreshes[i].removeAttribute('http-equiv');
+      for (var i = 0; i < refreshes.length; i++) {
+        var content = refreshes[i].getAttribute('content') || '';
+        var target = content.split('url=')[1] || '';
+        if (target && isAdHost(target)) refreshes[i].removeAttribute('http-equiv');
+      }
     } catch (e) {}
 
     var origOpen = XMLHttpRequest.prototype.open;

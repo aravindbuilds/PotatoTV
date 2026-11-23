@@ -104,7 +104,7 @@ data class Site(
 val Site.ratingOutOf10: Int
     get() = if (rating <= 0) 0 else ((rating / 18f) * 10f).roundToInt().coerceIn(1, 10)
 
-/** True for sites that can deep-link a title from Cinemeta/AnantPlay metadata. */
+/** True for sites that can deep-link a title from the metadata ids. */
 val Site.canPlayTitle: Boolean
     get() = movieTemplate.isNotBlank() || tvTemplate.isNotBlank() ||
         episodeTemplate.isNotBlank() || animeTemplate.isNotBlank()

@@ -47,9 +47,11 @@ object FmhyWiki {
                 SiteDirectory.parse(Http.getText(BakedSources.DEEPLINKS_URL)).titleSites
             }.getOrDefault(emptyList())
         }
-        val anantDef = async {
+        val bakedDef = async {
             runCatching {
-                SiteDirectory.parse(Http.getText(BakedSources.ANANT_DEEPLINKS_URL)).titleSites
+                val raw = app.potatotv.ServiceLocator.appContext.assets
+                    .open("title_templates.json").bufferedReader().use { it.readText() }
+                SiteDirectory.parse(raw).titleSites
             }.getOrDefault(emptyList())
         }
         val gradesDef = async { FmhyGrading.load() }
@@ -64,10 +66,10 @@ object FmhyWiki {
             }
         }
         val fmhyTemplates = fmhyDef.await()
-        val anantTemplates = anantDef.await()
-        val anantHosts = anantTemplates.mapNotNull { it.hostOf() }.toSet()
-        val templateSites = anantTemplates +
-            fmhyTemplates.filterNot { it.hostOf() in anantHosts }
+        val bakedTemplates = bakedDef.await()
+        val bakedHosts = bakedTemplates.mapNotNull { it.hostOf() }.toSet()
+        val templateSites = bakedTemplates +
+            fmhyTemplates.filterNot { it.hostOf() in bakedHosts }
         val grades = gradesDef.await()
         val wikiSites = wikiDef.await()
 

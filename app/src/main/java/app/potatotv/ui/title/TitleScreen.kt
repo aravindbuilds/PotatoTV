@@ -620,12 +620,12 @@ private fun buildSiteUrl(
         .replace("{title}", q)
         .replace("{imdb}", imdb)
 
-    // AnantPlay episode templates land straight on the selected episode.
+    // Episode templates land straight on the selected episode.
     if (tmdb != null && season != null && episode != null && site.episodeTemplate.isNotBlank()) {
         return fill(site.episodeTemplate)
     }
 
-    // FMHY / AnantPlay title-page templates address a title directly by TMDB id.
+    // Title-page templates address a title directly by TMDB id.
     val deeplink = when {
         type == "series" || type == "tv" -> site.tvTemplate.ifBlank { site.movieTemplate }
         else -> site.movieTemplate.ifBlank { site.tvTemplate }
