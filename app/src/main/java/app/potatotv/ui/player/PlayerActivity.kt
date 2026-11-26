@@ -357,6 +357,7 @@ private fun PlayerScreen(
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
     var buffering by remember { mutableStateOf(true) }
+    var playerError by remember { mutableStateOf<String?>(null) }
     var controlsVisible by remember { mutableStateOf(true) }
     var panel by remember { mutableStateOf<PlayerPanel?>(null) }
     var zoom by remember { mutableStateOf(ZoomMode.Fit) }
@@ -404,6 +405,11 @@ private fun PlayerScreen(
 
             override fun onTracksChanged(trackGroups: Tracks) {
                 tracks = trackGroups
+            }
+
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                buffering = false
+                playerError = error.message ?: "This stream could not be played."
             }
         }
         player.addListener(listener)
@@ -593,6 +599,30 @@ private fun PlayerScreen(
                         )
                     }
             )
+
+            playerError?.let { message ->
+                Column(
+                    Modifier
+                        .align(Alignment.Center)
+                        .background(Color(0xCC0E0E0E))
+                        .clip(RoundedCornerShape(12.dp))
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        message,
+                        color = PotatoDanger,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        "Back to site",
+                        color = PotatoAccent,
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.clickable { onBack() }
+                    )
+                }
+            }
 
             if (buffering && !isLive) {
                 CircularProgressIndicator(

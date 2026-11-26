@@ -37,7 +37,15 @@ val PotatoTypography = Typography(
         fontFamily = Sans,
         fontWeight = FontWeight.Bold,
         fontSize = 24.sp,
-        lineHeight = 28.sp
+        lineHeight = 28.sp,
+        letterSpacing = (-0.3).sp
+    ),
+    headlineSmall = TextStyle(
+        fontFamily = Sans,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
+        letterSpacing = (-0.2).sp
     ),
     titleLarge = TextStyle(
         fontFamily = Sans,
@@ -74,5 +82,11 @@ val PotatoTypography = Typography(
         fontWeight = FontWeight.Medium,
         fontSize = 12.sp,
         lineHeight = 16.sp
+    ),
+    labelSmall = TextStyle(
+        fontFamily = Sans,
+        fontWeight = FontWeight.Medium,
+        fontSize = 11.sp,
+        lineHeight = 15.sp
     )
 )

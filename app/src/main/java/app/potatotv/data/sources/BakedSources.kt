@@ -23,33 +23,7 @@ object BakedSources {
         val adult: Boolean = false
     )
 
-    val playlists: List<Entry> = listOf(
-        Entry(
-            label = "Verified",
-            url = "https://raw.githubusercontent.com/fmhyplay/sources/main/lists/verified.m3u",
-            adult = true
-        ),
-        Entry(
-            label = "adultiptv.net",
-            url = "https://raw.githubusercontent.com/fmhyplay/sources/main/lists/adultiptv.m3u",
-            adult = true
-        ),
-        Entry(
-            label = "Izanami",
-            url = "https://raw.githubusercontent.com/fmhyplay/sources/main/lists/izanami.m3u",
-            adult = true
-        ),
-        Entry(
-            label = "AdihashBCC",
-            url = "https://raw.githubusercontent.com/fmhyplay/sources/main/lists/adihashbcc.m3u",
-            adult = true
-        ),
-        Entry(
-            label = "6j9",
-            url = "https://raw.githubusercontent.com/fmhyplay/sources/main/lists/6j9.m3u",
-            adult = true
-        )
-    )
+    val playlists: List<Entry> = emptyList()
 
     /** Stable ids so a re-seed never duplicates a playlist the user already has. */
     fun toPlaylists(): List<Playlist> = playlists.map { entry ->

@@ -118,9 +118,9 @@ fun IptvScreen(nav: NavController) {
     val starred by ServiceLocator.prefs.starredChannels.collectAsStateWithLifecycle(initialValue = emptySet<String>())
     val working by ServiceLocator.prefs.workingChannels.collectAsStateWithLifecycle(initialValue = emptySet<String>())
 
-    // 18+ playlists stay hidden until the user turns them on in Settings.
-    val visiblePlaylists = remember(playlists, settings.adultSources) {
-        playlists.filter { !it.adult || settings.adultSources }
+    // 18+ playlists are disabled — only the user's own playlists are shown.
+    val visiblePlaylists = remember(playlists) {
+        playlists.filter { !it.adult }
     }
 
     LaunchedEffect(settings.adultSources) {

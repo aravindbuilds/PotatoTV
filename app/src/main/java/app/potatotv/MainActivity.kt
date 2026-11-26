@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
@@ -61,6 +64,10 @@ fun PotatoApp() {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
+    var startRoute by rememberSaveable { mutableStateOf("home") }
+    if (route?.startsWith("browser") == true || route?.startsWith("title/") == true) {
+        startRoute = route
+    }
     val hideChrome = route?.startsWith("browser") == true
     val compact = isCompactScreen()
 
@@ -84,7 +91,7 @@ fun PotatoApp() {
         Column(Modifier.fillMaxSize()) {
         NavHost(
             navController = nav,
-            startDestination = "home",
+            startDestination = startRoute,
             modifier = Modifier.weight(1f)
         ) {
             composable("home") {

@@ -49,6 +49,7 @@ import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -126,6 +127,7 @@ fun BrowserScreen(
 
     var showMenus by remember { mutableStateOf(false) }
     var detected by remember { mutableStateOf<SniffedStream?>(null) }
+    var dismissedStreams by remember { mutableStateOf(setOf<String>()) }
     var cursorOn by remember { mutableStateOf(settings.cursorMode) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var appliedUa by remember { mutableStateOf<String?>(null) }
@@ -155,7 +157,7 @@ fun BrowserScreen(
         fullscreenView = view
         fullscreenCallback = callback
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
-        val decor = activity?.window?.decorView as? FrameLayout
+        val decor = activity?.findViewById<FrameLayout>(android.R.id.content)
         decor?.addView(
             view,
             FrameLayout.LayoutParams(
@@ -408,14 +410,16 @@ fun BrowserScreen(
         BrowserSession.setCursor(settings.cursorMode)
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(dismissedStreams) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             BrowserSession.events.collect { event ->
                 when (event) {
                     is BrowserEvent.Stream -> {
                         // Only surface the stream. The site keeps playing its own
                         // video; the user can open the native player explicitly.
-                        detected = event.stream
+                        if (event.stream.url !in dismissedStreams) {
+                            detected = event.stream
+                        }
                     }
                     is BrowserEvent.Cursor -> cursorOn = event.on
                 }
@@ -637,7 +641,16 @@ fun BrowserScreen(
                             lastLaunchAt = SystemClock.elapsedRealtime()
                             scope.launch { openPlayer(stream) }
                         }
-                        TextRailAction("Dismiss") { detected = null }
+                        IconButton(onClick = {
+                            dismissedStreams = dismissedStreams + stream.url
+                            detected = null
+                        }) {
+                            Icon(Icons.Filled.Close, contentDescription = "Dismiss", tint = PotatoTextDim, modifier = Modifier.size(18.dp))
+                        }
+                        TextRailAction("Dismiss") {
+                            dismissedStreams = dismissedStreams + stream.url
+                            detected = null
+                        }
                     }
                 }
             }

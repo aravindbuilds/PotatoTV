@@ -1,6 +1,8 @@
 package app.potatotv.ui.home
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,42 +15,56 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import app.potatotv.ServiceLocator
-import app.potatotv.data.model.MetaPreview
 import app.potatotv.data.model.Progress
 import app.potatotv.ui.components.EmptyState
 import app.potatotv.ui.components.HeroBanner
 import app.potatotv.ui.components.LoadingState
 import app.potatotv.ui.components.Mascot
-import app.potatotv.ui.components.PosterCard
+import app.potatotv.ui.components.SectionHeader
 import app.potatotv.ui.components.SectionRow
 import app.potatotv.ui.theme.PotatoAccent
-import app.potatotv.ui.theme.PotatoBg
+import app.potatotv.ui.theme.PotatoDimens
+import app.potatotv.ui.theme.PotatoGoldSoft
+import app.potatotv.ui.theme.PotatoLine
+import app.potatotv.ui.theme.PotatoSurface
+import app.potatotv.ui.theme.PotatoSurfaceSoft
 import app.potatotv.ui.theme.PotatoText
 import app.potatotv.ui.theme.PotatoTextDim
+import app.potatotv.ui.theme.PotatoTextFaint
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 
@@ -80,13 +96,27 @@ fun HomeScreen(nav: NavController) {
         .take(12)
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val horizontal = if (maxWidth < 720.dp) 20.dp else 48.dp
+        val compact = maxWidth < 600.dp
+        val horizontal = when {
+            compact -> PotatoDimens.screenPaddingCompact
+            maxWidth < 900.dp -> PotatoDimens.screenPaddingMedium
+            else -> PotatoDimens.screenPadding
+        }
+        // On very wide displays the rails stop stretching and stay optically
+        // centred, with identical empty margins on both sides.
+        val railPadding = if (maxWidth > PotatoDimens.maxContentWidth + horizontal + horizontal) {
+            (maxWidth - PotatoDimens.maxContentWidth) / 2
+        } else {
+            horizontal
+        }
+        val cardGap = if (compact) PotatoDimens.compactCardGap else PotatoDimens.cardGap
+        val posterWidth = if (compact) 132 else 176
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 64.dp)
+            contentPadding = PaddingValues(bottom = 48.dp)
         ) {
-            item {
+            item(key = "hero") {
                 val hero = state.hero
                 if (hero != null) {
                     HeroBanner(
@@ -96,26 +126,31 @@ fun HomeScreen(nav: NavController) {
                         onPlay = { nav.navigate("title/${hero.type}/${hero.id}") },
                         onToggleList = {
                             scope.launch { ServiceLocator.prefs.toggleMyList(hero) }
-                        }
+                        },
+                        horizontal = railPadding
                     )
                 }
             }
 
             if (continuing.isNotEmpty()) {
-                item {
-                    Column(Modifier.padding(top = 26.dp)) {
-                        Text(
-                            "Continue Watching",
-                            color = PotatoText,
-                            style = MaterialTheme.typography.headlineMedium,
-                            modifier = Modifier.padding(start = horizontal, end = horizontal, bottom = 14.dp)
+                item(key = "continue") {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = PotatoDimens.sectionGap)
+                    ) {
+                        SectionHeader(
+                            title = "Continue Watching",
+                            subtitle = "Pick up where you left off",
+                            horizontal = railPadding
                         )
+                        Spacer(Modifier.height(16.dp))
                         LazyRow(
-                            contentPadding = PaddingValues(horizontal = horizontal),
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            contentPadding = PaddingValues(horizontal = railPadding),
+                            horizontalArrangement = Arrangement.spacedBy(cardGap)
                         ) {
                             items(continuing, key = { it.key }) { entry ->
-                                ContinueCard(entry) {
+                                ContinueCard(progress = entry) {
                                     nav.navigate("title/${entry.type}/${entry.imdbId ?: entry.key}")
                                 }
                             }
@@ -125,67 +160,24 @@ fun HomeScreen(nav: NavController) {
             }
 
             items(rows, key = { it.key }) { row ->
-                Column(Modifier.padding(top = 28.dp)) {
-                    SectionRowWithPadding(
-                        title = row.title,
-                        items = row.items,
-                        horizontal = horizontal,
-                        onSelect = { nav.navigate("title/${it.type}/${it.id}") }
-                    )
-                }
-            }
-
-            item {
                 Column(
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = horizontal)
-                        .padding(top = 56.dp, bottom = 20.dp)
+                        .padding(top = PotatoDimens.sectionGap)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Mascot(38)
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            "PotatoTV 1.0",
-                            color = PotatoTextDim,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "A browser and a player. It does not host, index or distribute any video. " +
-                            "Sites, playlists and the content they serve belong to third parties — only watch what you have the right to watch.",
-                        color = Color(0xFF777777),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.fillMaxWidth(0.8f)
+                    SectionRow(
+                        title = row.title,
+                        items = row.items,
+                        onSelect = { nav.navigate("title/${it.type}/${it.id}") },
+                        horizontal = railPadding,
+                        cardSpacing = cardGap,
+                        posterWidth = posterWidth
                     )
                 }
             }
-        }
-    }
-}
 
-@Composable
-private fun SectionRowWithPadding(
-    title: String,
-    items: List<MetaPreview>,
-    horizontal: androidx.compose.ui.unit.Dp,
-    onSelect: (MetaPreview) -> Unit
-) {
-    if (items.isEmpty()) return
-    Column(Modifier.fillMaxWidth()) {
-        Text(
-            title,
-            color = PotatoText,
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(start = horizontal, end = horizontal, bottom = 14.dp)
-        )
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = horizontal),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            items(items, key = { it.id }) { item ->
-                PosterCard(item, onClick = { onSelect(item) })
+            item(key = "footer") {
+                HomeFooter(horizontal = railPadding)
             }
         }
     }
@@ -193,21 +185,32 @@ private fun SectionRowWithPadding(
 
 @Composable
 private fun ContinueCard(progress: Progress, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (focused) 1.04f else 1f, label = "continue-scale")
+    val shape = RoundedCornerShape(PotatoDimens.cardRadius)
+
     Row(
         Modifier
-            .width(300.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF161616))
+            .width(320.dp)
+            .scale(scale)
+            .clip(shape)
+            .background(PotatoSurface)
+            .border(
+                1.dp,
+                if (focused) PotatoAccent else PotatoLine.copy(alpha = 0.6f),
+                shape
+            )
+            .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick)
-            .padding(10.dp),
+            .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             Modifier
-                .width(86.dp)
-                .height(122.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF222222))
+                .width(88.dp)
+                .height(124.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(PotatoSurfaceSoft)
         ) {
             AsyncImage(
                 model = progress.poster,
@@ -215,8 +218,23 @@ private fun ContinueCard(progress: Progress, onClick: () -> Unit) {
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
+            if (focused) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.45f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        tint = PotatoGoldSoft,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 progress.title,
@@ -231,21 +249,63 @@ private fun ContinueCard(progress: Progress, onClick: () -> Unit) {
                 color = PotatoTextDim,
                 style = MaterialTheme.typography.labelMedium
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             Box(
                 Modifier
                     .fillMaxWidth()
                     .height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(Color.White.copy(alpha = 0.16f))
+                    .background(Color.White.copy(alpha = 0.14f))
             ) {
                 Box(
                     Modifier
                         .fillMaxWidth(progress.fraction)
-                        .height(4.dp)
+                        .fillMaxSize()
                         .background(PotatoAccent)
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun HomeFooter(horizontal: Dp) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = horizontal)
+            .padding(top = 64.dp, bottom = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(PotatoLine.copy(alpha = 0.7f))
+        )
+        Spacer(Modifier.height(26.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Mascot(30)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "POTATO",
+                color = PotatoText,
+                style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 1.sp)
+            )
+            Text(
+                "TV",
+                color = PotatoAccent,
+                style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 1.sp)
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "A browser and a player. It does not host, index or distribute any video. " +
+                "Sites, playlists and the content they serve belong to third parties — only watch what you have the right to watch.",
+            color = PotatoTextFaint,
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.widthIn(max = 720.dp)
+        )
     }
 }

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -57,6 +58,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.PaddingValues
@@ -65,13 +67,16 @@ import app.potatotv.data.model.MetaPreview
 import app.potatotv.data.model.Progress
 import app.potatotv.ui.theme.PotatoAccent
 import app.potatotv.ui.theme.PotatoBg
-import app.potatotv.ui.theme.PotatoDanger
+import app.potatotv.ui.theme.PotatoDimens
+import app.potatotv.ui.theme.PotatoGoldSoft
 import app.potatotv.ui.theme.PotatoGlow
 import app.potatotv.ui.theme.PotatoLine
+import app.potatotv.ui.theme.PotatoOnAccent
 import app.potatotv.ui.theme.PotatoRating
 import app.potatotv.ui.theme.PotatoSurface
 import app.potatotv.ui.theme.PotatoText
 import app.potatotv.ui.theme.PotatoTextDim
+import app.potatotv.ui.theme.PotatoTextFaint
 import coil.compose.AsyncImage
 
 @Composable
@@ -279,27 +284,64 @@ private fun IconPill(
 }
 
 @Composable
-fun SectionRow(
+fun SectionHeader(
     title: String,
-    items: List<MetaPreview>,
-    onSelect: (MetaPreview) -> Unit
+    subtitle: String? = null,
+    horizontal: Dp = PotatoDimens.screenPadding
 ) {
-    if (items.isEmpty()) return
-    Column(Modifier.fillMaxWidth()) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = horizontal)
+    ) {
         Text(
             title,
             color = PotatoText,
             style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(start = 48.dp, end = 48.dp, bottom = 14.dp)
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
+        Spacer(Modifier.height(6.dp))
+        Box(
+            Modifier
+                .width(28.dp)
+                .height(2.dp)
+                .clip(RoundedCornerShape(1.dp))
+                .background(PotatoAccent)
+        )
+        if (subtitle != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                subtitle,
+                color = PotatoTextFaint,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+
+@Composable
+fun SectionRow(
+    title: String,
+    items: List<MetaPreview>,
+    onSelect: (MetaPreview) -> Unit,
+    horizontal: Dp = PotatoDimens.screenPadding,
+    subtitle: String? = null,
+    cardSpacing: Dp = PotatoDimens.cardGap,
+    posterWidth: Int = 176
+) {
+    if (items.isEmpty()) return
+    Column(Modifier.fillMaxWidth()) {
+        SectionHeader(title, subtitle, horizontal)
+        Spacer(Modifier.height(16.dp))
         val state = rememberLazyListState()
         LazyRow(
             state = state,
-            contentPadding = PaddingValues(horizontal = 48.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(horizontal = horizontal),
+            horizontalArrangement = Arrangement.spacedBy(cardSpacing)
         ) {
             items(items, key = { it.id }) { item ->
-                PosterCard(item, onClick = { onSelect(item) })
+                PosterCard(item, onClick = { onSelect(item) }, width = posterWidth)
             }
         }
     }
@@ -315,17 +357,18 @@ fun PosterCard(
     onLongClick: (() -> Unit)? = null
 ) {
     var focused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (focused) 1.06f else 1f, label = "poster-scale")
+    val scale by animateFloatAsState(if (focused) 1.05f else 1f, label = "poster-scale")
+    val radius = RoundedCornerShape(PotatoDimens.cardRadius)
     Column(
         modifier
             .width(width.dp)
             .scale(scale)
             .onFocusChanged { focused = it.isFocused }
-            .clip(RoundedCornerShape(12.dp))
+            .clip(radius)
             .border(
-                2.dp,
-                if (focused) PotatoAccent else Color.Transparent,
-                RoundedCornerShape(12.dp)
+                if (focused) 2.dp else 1.dp,
+                if (focused) PotatoAccent else PotatoLine.copy(alpha = 0.6f),
+                radius
             )
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
     ) {
@@ -333,11 +376,9 @@ fun PosterCard(
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(radius)
                 .background(
-                    Brush.verticalGradient(
-                        listOf(PotatoSurface, Color(0xFF181818))
-                    )
+                    Brush.verticalGradient(listOf(PotatoSurface, Color(0xFF141414)))
                 )
         ) {
             AsyncImage(
@@ -375,7 +416,11 @@ fun PosterCard(
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (!item.imdbRating.isNullOrBlank()) {
-                            Text("★ ${item.imdbRating}", color = PotatoRating, style = MaterialTheme.typography.labelMedium)
+                            Text(
+                                "★ ${item.imdbRating}",
+                                color = PotatoGoldSoft,
+                                style = MaterialTheme.typography.labelMedium
+                            )
                             Spacer(Modifier.width(8.dp))
                         }
                         Text(
@@ -391,18 +436,19 @@ fun PosterCard(
                     Modifier
                         .align(Alignment.TopEnd)
                         .padding(8.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color.Black.copy(alpha = 0.72f))
-                        .padding(horizontal = 6.dp, vertical = 3.dp),
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Black.copy(alpha = 0.78f))
+                        .border(1.dp, PotatoLine, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 7.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("★", color = PotatoRating, fontSize = 10.sp)
+                    Text("★", color = PotatoGoldSoft, fontSize = 10.sp)
                     Spacer(Modifier.width(3.dp))
                     Text(item.imdbRating, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
-        Spacer(Modifier.height(7.dp))
+        Spacer(Modifier.height(8.dp))
         Text(
             item.name,
             color = if (focused) PotatoText else PotatoTextDim,
@@ -419,10 +465,14 @@ fun HeroBanner(
     progress: Progress?,
     inMyList: Boolean,
     onPlay: () -> Unit,
-    onToggleList: () -> Unit
+    onToggleList: () -> Unit,
+    horizontal: Dp = PotatoDimens.screenPadding
 ) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val height = (maxWidth * 0.44f).coerceIn(380.dp, 600.dp)
+        val height = (maxWidth * 0.46f).coerceIn(390.dp, 620.dp)
+        val compact = maxWidth < 600.dp
+        val contentPadding = if (compact) PotatoDimens.screenPaddingCompact else horizontal
+
         Box(
             Modifier
                 .fillMaxWidth()
@@ -434,15 +484,19 @@ fun HeroBanner(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
+
+            // A deep base fade blends the artwork into the page, while the
+            // symmetrical side vignette keeps type legible on any backdrop.
             Box(
                 Modifier
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
                             listOf(
-                                Color(0x660E0E0E),
-                                Color(0x330E0E0E),
-                                Color(0xF20E0E0E),
+                                PotatoBg.copy(alpha = 0.35f),
+                                Color.Transparent,
+                                Color(0x990E0E0E),
+                                Color(0xF50E0E0E),
                                 PotatoBg
                             )
                         )
@@ -453,46 +507,92 @@ fun HeroBanner(
                     .fillMaxSize()
                     .background(
                         Brush.horizontalGradient(
-                            listOf(Color(0xCC0E0E0E), Color(0x440E0E0E), Color.Transparent)
+                            listOf(
+                                Color(0x990E0E0E),
+                                Color.Transparent,
+                                Color.Transparent,
+                                Color(0x660E0E0E)
+                            )
                         )
                     )
             )
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Transparent, PotatoAccent.copy(alpha = 0.07f))
+                        )
+                    )
+            )
+
+            // Centred content frame: equal optical margins on both sides, with
+            // the copy aligned to the same column as every rail below it.
             Column(
                 Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 48.dp, end = 48.dp, bottom = 34.dp)
-                    .fillMaxWidth(0.72f)
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .widthIn(max = PotatoDimens.heroMaxWidth)
+                    .padding(horizontal = contentPadding, vertical = 34.dp)
             ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(PotatoAccent)
+                    )
+                    Spacer(Modifier.width(9.dp))
+                    Text(
+                        "FEATURED",
+                        color = PotatoGoldSoft,
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            letterSpacing = 2.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+
                 if (!item.logo.isNullOrBlank()) {
                     AsyncImage(
                         model = item.logo,
                         contentDescription = item.name,
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
-                            .height(72.dp)
-                            .fillMaxWidth(0.5f)
+                            .height(64.dp)
+                            .widthIn(max = 300.dp)
                     )
-                    Spacer(Modifier.height(10.dp))
                 } else {
                     Text(
                         item.name,
                         color = Color.White,
-                        style = MaterialTheme.typography.displayLarge,
+                        style = if (compact) {
+                            MaterialTheme.typography.headlineLarge
+                        } else {
+                            MaterialTheme.typography.displayLarge
+                        },
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(Modifier.height(10.dp))
                 }
+                Spacer(Modifier.height(14.dp))
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (!item.imdbRating.isNullOrBlank()) {
                         Box(
                             Modifier
-                                .size(42.dp)
+                                .size(40.dp)
                                 .clip(CircleShape)
-                                .border(3.dp, PotatoRating, CircleShape),
+                                .border(2.dp, PotatoRating, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(item.imdbRating, color = PotatoRating, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text(
+                                item.imdbRating,
+                                color = PotatoRating,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
                         }
                         Spacer(Modifier.width(12.dp))
                     }
@@ -506,18 +606,19 @@ fun HeroBanner(
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
-                Spacer(Modifier.height(12.dp))
+
                 item.description?.let {
+                    Spacer(Modifier.height(12.dp))
                     Text(
                         it,
-                        color = Color(0xFFDADADA),
+                        color = PotatoTextDim,
                         style = MaterialTheme.typography.bodyLarge,
                         maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth(0.94f)
+                        overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(Modifier.height(18.dp))
                 }
+                Spacer(Modifier.height(20.dp))
+
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     PotatoButton(
                         label = if (progress != null && progress.positionMs > 10_000) "Resume" else "Play",
@@ -532,14 +633,16 @@ fun HeroBanner(
                         onClick = onToggleList
                     )
                 }
+
                 if (progress != null && progress.durationMs > 0) {
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(16.dp))
                     Box(
                         Modifier
-                            .fillMaxWidth(0.44f)
+                            .widthIn(max = 320.dp)
+                            .fillMaxWidth()
                             .height(4.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(Color.White.copy(alpha = 0.2f))
+                            .background(Color.White.copy(alpha = 0.18f))
                     ) {
                         Box(
                             Modifier
@@ -557,38 +660,44 @@ fun HeroBanner(
 @Composable
 fun PotatoButton(
     label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    icon: ImageVector? = null,
     primary: Boolean,
     onClick: () -> Unit
 ) {
     var focused by remember { mutableStateOf(false) }
-    val bg = when {
-        primary && focused -> Color(0xFFFF5C5C)
-        primary -> PotatoDanger
-        focused -> Color.White.copy(alpha = 0.2f)
-        else -> Color.White.copy(alpha = 0.1f)
-    }
     val scale by animateFloatAsState(if (focused) 1.04f else 1f, label = "button-scale")
+    val shape = RoundedCornerShape(10.dp)
+
+    val background = when {
+        primary && focused -> PotatoGoldSoft
+        primary -> PotatoAccent
+        focused -> Color.White.copy(alpha = 0.16f)
+        else -> Color.White.copy(alpha = 0.08f)
+    }
+    val contentColor = if (primary) PotatoOnAccent else PotatoText
+    val borderColor = when {
+        focused && primary -> PotatoOnAccent.copy(alpha = 0.35f)
+        focused -> PotatoAccent
+        primary -> Color.Transparent
+        else -> PotatoLine
+    }
+
     Row(
         Modifier
             .scale(scale)
-            .clip(RoundedCornerShape(8.dp))
-            .background(bg)
-            .border(
-                1.dp,
-                if (focused) PotatoAccent else Color.Transparent,
-                RoundedCornerShape(8.dp)
-            )
+            .clip(shape)
+            .background(background)
+            .border(if (focused) 2.dp else 1.dp, borderColor, shape)
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 13.dp),
+            .padding(horizontal = 26.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (icon != null) {
-            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+            Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
         }
-        Text(label, color = Color.White, style = MaterialTheme.typography.labelLarge)
+        Text(label, color = contentColor, style = MaterialTheme.typography.labelLarge)
     }
 }
 

@@ -10,9 +10,9 @@ import androidx.compose.ui.unit.dp
 
 private val PotatoColors = darkColorScheme(
     primary = PotatoAccent,
-    onPrimary = Color(0xFF00131C),
+    onPrimary = PotatoOnAccent,
     primaryContainer = PotatoAccentDeep,
-    onPrimaryContainer = Color.White,
+    onPrimaryContainer = PotatoOnAccent,
     secondary = PotatoRating,
     onSecondary = Color(0xFF00210D),
     tertiary = PotatoDanger,
@@ -45,13 +45,23 @@ fun PotatoTvTheme(content: @Composable () -> Unit) {
     )
 }
 
+/** Shared layout rhythm. All home-screen spacing routes through these tokens. */
 object PotatoDimens {
     val screenPadding = 48.dp
+    val screenPaddingMedium = 32.dp
     val screenPaddingCompact = 20.dp
-    val sectionGap = 40.dp
+
+    val sectionGap = 36.dp
+    val cardGap = 16.dp
+    val compactCardGap = 12.dp
+
     val posterWidth = 176.dp
     val posterHeight = 264.dp
     val posterWidthCompact = 132.dp
     val posterHeightCompact = 198.dp
-    val cardRadius = 12.dp
+    val cardRadius = 14.dp
+
+    /** Keeps rails optically centred on very wide displays. */
+    val maxContentWidth = 1600.dp
+    val heroMaxWidth = 980.dp
 }

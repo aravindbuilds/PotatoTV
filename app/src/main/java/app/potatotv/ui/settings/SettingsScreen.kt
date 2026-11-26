@@ -89,7 +89,6 @@ fun SettingsScreen(@Suppress("UNUSED_PARAMETER") nav: NavController) {
     var warpHost by remember(settings.warpHost) { mutableStateOf(settings.warpHost) }
     var warpPort by remember(settings.warpPort) { mutableStateOf(if (settings.warpPort > 0) settings.warpPort.toString() else "") }
     var catalogProvider by remember(settings.catalogProvider) { mutableStateOf(settings.catalogProvider) }
-    var adultSources by remember(settings.adultSources) { mutableStateOf(settings.adultSources) }
 
     var subtitleKey by remember(settings.openSubtitlesKey) { mutableStateOf(settings.openSubtitlesKey) }
     var directoryUrl by remember(settings.siteDirectoryUrl) { mutableStateOf(settings.siteDirectoryUrl) }
@@ -290,25 +289,11 @@ fun SettingsScreen(@Suppress("UNUSED_PARAMETER") nav: NavController) {
 
         item {
             SettingsSection(
-                title = "Sources & 18+",
-                subtitle = "The FMHYPlay lists baked into this build, plus the title-page directory."
+                title = "Sources",
+                subtitle = "Where PotatoTV finds sites and title-page links."
             ) {
-                ToggleRow(
-                    title = "Show 18+ playlists",
-                    subtitle = "Reveals the adult lists in Live TV. Off by default, and turning it off closes an open adult list.",
-                    checked = adultSources
-                ) { value ->
-                    adultSources = value
-                    save("adultSources", value)
-                }
                 Text(
-                    "Baked-in playlists: " +
-                        app.potatotv.data.sources.BakedSources.playlists.joinToString(" · ") { it.label },
-                    color = PotatoText,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    "Title-page templates are fetched automatically from the built-in source list. " +
+                    "Title-page templates are loaded from the built-in source list. " +
                         "Only sites that can open this exact title are offered for playback.",
                     color = PotatoTextDim,
                     style = MaterialTheme.typography.bodyMedium

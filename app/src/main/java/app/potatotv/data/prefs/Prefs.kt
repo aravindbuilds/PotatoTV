@@ -107,6 +107,20 @@ class Prefs(private val context: Context) {
                 }
                 p[SOURCES_VERSION] = 1
             }
+
+            // 18+ playlists are no longer shipped or offered.
+            if ((p[SOURCES_VERSION] ?: 0) < 2) {
+                val existing = decodeList(p[PLAYLISTS], Playlist.serializer())
+                val cleaned = existing.filterNot { it.adult || it.id.startsWith("fmhy-") }
+                if (cleaned.size != existing.size) {
+                    p[PLAYLISTS] = json.encodeToString(
+                        ListSerializer(Playlist.serializer()),
+                        cleaned
+                    )
+                }
+                p[ADULT_SOURCES] = false
+                p[SOURCES_VERSION] = 2
+            }
         }
     }
 
