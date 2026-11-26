@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -40,6 +41,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PlayArrow
@@ -85,6 +87,7 @@ import app.potatotv.data.iptv.IptvCountry
 import app.potatotv.data.model.Channel
 import app.potatotv.data.model.AppSettings
 import app.potatotv.data.model.Playlist
+import app.potatotv.data.tv.NowNext
 import app.potatotv.ui.components.EmptyState
 import app.potatotv.ui.components.LoadingState
 import app.potatotv.ui.components.Mascot
@@ -117,6 +120,7 @@ fun IptvScreen(nav: NavController) {
         .collectAsStateWithLifecycle(initialValue = AppSettings())
     val starred by ServiceLocator.prefs.starredChannels.collectAsStateWithLifecycle(initialValue = emptySet<String>())
     val working by ServiceLocator.prefs.workingChannels.collectAsStateWithLifecycle(initialValue = emptySet<String>())
+    val viewCounts by ServiceLocator.prefs.channelViews.collectAsStateWithLifecycle(initialValue = emptyMap<String, app.potatotv.data.model.ChannelView>())
 
     // 18+ playlists are disabled — only the user's own playlists are shown.
     val visiblePlaylists = remember(playlists) {
@@ -132,6 +136,8 @@ fun IptvScreen(nav: NavController) {
     var showAdd by remember { mutableStateOf(false) }
     var showCategories by remember { mutableStateOf(false) }
     var showCountries by remember { mutableStateOf(false) }
+    var showLanguages by remember { mutableStateOf(false) }
+    var showGenres by remember { mutableStateOf(false) }
     val compact = isCompactScreen()
     val hPad = if (compact) 16.dp else 48.dp
 
@@ -162,35 +168,87 @@ fun IptvScreen(nav: NavController) {
     val categories: List<IptvCategory> = data?.categories.orEmpty()
     val countries: List<IptvCountry> = data?.countries.orEmpty()
 
+    val intelChannels = remember(vm.intelligenceReady, vm.tick) {
+        ServiceLocator.tvIntel.allChannels()
+    }
+    val enrichedChannels = remember(intelChannels) {
+        intelChannels.mapNotNull { channel ->
+            val stream = channel.streams.firstOrNull() ?: return@mapNotNull null
+            Channel(
+                id = channel.id,
+                name = channel.name,
+                url = stream.url,
+                urls = channel.allSources,
+                logo = channel.logo,
+                group = channel.categories.firstOrNull(),
+                categories = channel.categories,
+                country = channel.country,
+                countryName = channel.countryName,
+                languages = channel.languages,
+                description = channel.description,
+                quality = channel.qualityClaims.firstOrNull(),
+                referrer = stream.referrer,
+                userAgent = stream.userAgent,
+                canonicalId = channel.id
+            )
+        }
+    }
     val baseChannels: List<Channel> = if (vm.activePlaylist != null) {
         vm.playlistChannels
+    } else if (enrichedChannels.isNotEmpty()) {
+        enrichedChannels
     } else {
         data?.channels.orEmpty()
     }
 
     val categoryName = categories.firstOrNull { it.id == vm.category }?.name
     val countryName = countries.firstOrNull { it.code == vm.country }?.name
+    val languageOptions = remember(baseChannels) {
+        baseChannels.asSequence().flatMap { it.languages.asSequence() }
+            .filter { it.isNotBlank() }.distinct().sorted().take(40).toList()
+    }
+    val genreOptions = remember(baseChannels) {
+        baseChannels.asSequence().flatMap { it.categories.asSequence() }
+            .filter { it.isNotBlank() }.distinct().sorted().take(40).toList()
+    }
 
     val filtered = remember(
-        baseChannels, vm.query, vm.category, vm.country, vm.tab, starred, working, vm.workingOnly, categoryName
+        baseChannels, vm.query, vm.category, vm.country, vm.language, vm.tab, starred, working,
+        vm.workingOnly, vm.sort, viewCounts, categoryName
     ) {
         val q = vm.query.trim()
-        baseChannels.filter { channel ->
+        val matched = baseChannels.filter { channel ->
             val matchesQuery = q.isBlank() ||
                 channel.name.contains(q, ignoreCase = true) ||
                 channel.group?.contains(q, ignoreCase = true) == true ||
+                channel.description?.contains(q, ignoreCase = true) == true ||
+                channel.languages.any { it.contains(q, ignoreCase = true) } ||
                 channel.playlistName?.contains(q, ignoreCase = true) == true
             val matchesCategory = vm.category == null ||
                 vm.category in channel.categories ||
                 channel.group == categoryName
             val matchesCountry = vm.country == null || channel.country == vm.country
+            val matchesLanguage = vm.language == null || channel.languages.any { it.equals(vm.language, true) }
             val matchesTab = when (vm.tab) {
                 IptvTab.Starred -> channel.id in starred
                 IptvTab.Working -> channel.id in working
                 else -> true
             }
             val matchesWorking = !vm.workingOnly || channel.id in working
-            matchesQuery && matchesCategory && matchesCountry && matchesTab && matchesWorking
+            matchesQuery && matchesCategory && matchesCountry && matchesLanguage && matchesTab && matchesWorking
+        }
+        when (vm.sort) {
+            SortMode.Popularity -> matched.sortedWith(
+                compareByDescending<Channel> { channel ->
+                    viewCounts[channel.canonicalId ?: channel.id]?.count ?: 0
+                }.thenByDescending { it.id in starred }
+                    .thenByDescending { it.id in working }
+                    .thenBy { it.name.lowercase() }
+            )
+            SortMode.Recent -> matched.sortedByDescending {
+                viewCounts[it.canonicalId ?: it.id]?.lastViewedAt ?: 0L
+            }
+            SortMode.Alphabetical -> matched.sortedBy { it.name.lowercase() }
         }
     }
 
@@ -274,6 +332,7 @@ fun IptvScreen(nav: NavController) {
                 TabPill(
                     label = when (tab) {
                         IptvTab.Live -> "Live"
+                        IptvTab.Guide -> "Guide"
                         IptvTab.Playlists -> "Playlists (${visiblePlaylists.size})"
                         IptvTab.Starred -> "Starred (${starred.size})"
                         IptvTab.Working -> "Working (${working.size})"
@@ -363,6 +422,49 @@ fun IptvScreen(nav: NavController) {
             }
         }
 
+        if (vm.tab == IptvTab.Live || vm.tab == IptvTab.Starred || vm.tab == IptvTab.Working) {
+            Spacer(Modifier.height(8.dp))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = hPad)
+                    .then(if (compact) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SortMode.entries.forEach { mode ->
+                    TabPill(
+                        label = when (mode) {
+                            SortMode.Popularity -> "Most watched"
+                            SortMode.Recent -> "Recently watched"
+                            SortMode.Alphabetical -> "A–Z"
+                        },
+                        selected = vm.sort == mode
+                    ) { vm.sort = mode }
+                }
+                if (languageOptions.isNotEmpty()) {
+                    FilterPill(
+                        label = vm.language?.let { "Language: $it" } ?: "All languages",
+                        active = vm.language != null
+                    ) { showLanguages = true }
+                }
+                if (genreOptions.isNotEmpty()) {
+                    FilterPill(
+                        label = vm.category?.let { "Genre: $it" } ?: "All genres",
+                        active = vm.category != null
+                    ) { showGenres = true }
+                }
+                vm.stats?.let { s ->
+                    Text(
+                        "${s.channels} channels · ${s.withEpg} with guide",
+                        color = PotatoTextDim,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+            }
+        }
+
         Spacer(Modifier.height(14.dp))
 
         when {
@@ -380,6 +482,16 @@ fun IptvScreen(nav: NavController) {
                     onOpen = { vm.tab = IptvTab.Playlists; vm.selectPlaylist(it) },
                     onRemove = { vm.removePlaylist(it) },
                     onAdd = { showAdd = true }
+                )
+            }
+            vm.tab == IptvTab.Guide -> {
+                GuidePane(
+                    vm = vm,
+                    compact = compact,
+                    hPad = hPad,
+                    onPlay = { playChannel(context, it) },
+                    onProgramme = { vm.selectedProgramme = it },
+                    onChannel = { vm.selectedChannel = it }
                 )
             }
             vm.loading && data == null -> LoadingState("Downloading the live catalogue…")
@@ -414,8 +526,12 @@ fun IptvScreen(nav: NavController) {
                         channel = channel,
                         starred = channel.id in starred,
                         working = channel.id in working,
-                        onClick = { playChannel(context, channel) },
-                        onStar = { scope.launch { ServiceLocator.prefs.toggleStarChannel(channel.id) } }
+                        nowNext = vm.nowNext[channel.canonicalId ?: channel.id],
+                        onClick = { playChannel(context, channel); vm.recordPlay(channel) },
+                        onStar = { scope.launch { ServiceLocator.prefs.toggleStarChannel(channel.id) } },
+                        onDetails = {
+                            vm.selectedChannel = ServiceLocator.tvIntel.channel(channel.canonicalId ?: channel.id)
+                        }
                     )
                 }
             }
@@ -451,6 +567,76 @@ fun IptvScreen(nav: NavController) {
             selected = vm.country,
             onSelect = { vm.country = it; showCountries = false },
             onDismiss = { showCountries = false }
+        )
+    }
+
+    if (showLanguages) {
+        FilterPickerDialog(
+            title = "Language",
+            options = listOf("All languages" to null) + languageOptions.map { it to it },
+            selected = vm.language,
+            onSelect = { vm.language = it; showLanguages = false },
+            onDismiss = { showLanguages = false }
+        )
+    }
+
+    if (showGenres) {
+        FilterPickerDialog(
+            title = "Genre",
+            options = listOf("All genres" to null) + genreOptions.map { it to it },
+            selected = vm.category,
+            onSelect = { vm.category = it; showGenres = false },
+            onDismiss = { showGenres = false }
+        )
+    }
+
+    vm.selectedChannel?.let { selected ->
+        ChannelDetailDialog(
+            channel = selected,
+            nowNext = vm.nowNext[selected.id],
+            onDismiss = { vm.selectedChannel = null },
+            onPlay = {
+                val stream = selected.streams.firstOrNull()
+                if (stream != null) {
+                    playChannel(
+                        context,
+                        Channel(
+                            id = selected.id,
+                            name = selected.name,
+                            url = stream.url,
+                            logo = selected.logo,
+                            canonicalId = selected.id,
+                            referrer = stream.referrer,
+                            userAgent = stream.userAgent
+                        )
+                    )
+                }
+                vm.selectedChannel = null
+            },
+            schedule = { from, to -> vm.schedule(selected.epgIds.firstOrNull().orEmpty(), from, to) },
+            onProgramme = { vm.selectedProgramme = it }
+        )
+    }
+
+    vm.selectedProgramme?.let { programme ->
+        ProgrammeDetailDialog(
+            programme = programme,
+            onDismiss = { vm.selectedProgramme = null },
+            onPlayChannel = { epgId ->
+                val channel = ServiceLocator.tvIntel.allChannels().firstOrNull { epgId in it.epgIds }
+                val stream = channel?.streams?.firstOrNull()
+                if (channel != null && stream != null) {
+                    playChannel(
+                        context,
+                        Channel(
+                            id = channel.id, name = channel.name, url = stream.url,
+                            logo = channel.logo, canonicalId = channel.id,
+                            referrer = stream.referrer, userAgent = stream.userAgent
+                        )
+                    )
+                }
+                vm.selectedProgramme = null
+            }
         )
     }
 }
@@ -547,7 +733,9 @@ private fun ChannelCard(
     starred: Boolean,
     working: Boolean,
     onClick: () -> Unit,
-    onStar: () -> Unit
+    onStar: () -> Unit,
+    nowNext: NowNext? = null,
+    onDetails: () -> Unit = {}
 ) {
     var focused by remember { mutableStateOf(false) }
     Column(
@@ -592,6 +780,7 @@ private fun ChannelCard(
                 )
                 Text(
                     listOfNotNull(
+                        channel.languages.firstOrNull(),
                         channel.group,
                         channel.countryName ?: channel.country,
                         channel.playlistName
@@ -614,19 +803,69 @@ private fun ChannelCard(
             }
         }
         Spacer(Modifier.height(8.dp))
+        val current = nowNext?.current
+        if (current != null) {
+            Text(
+                "NOW  ${current.title}",
+                color = PotatoText,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(5.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color.White.copy(alpha = 0.12f))
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(nowNext?.progress ?: 0f)
+                        .fillMaxHeight()
+                        .background(PotatoAccent)
+                )
+            }
+            Spacer(Modifier.height(5.dp))
+            Text(
+                nowNext?.next?.title?.let { "NEXT  $it" } ?: "Guide available",
+                color = PotatoTextDim,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    when {
+                        channel.quality != null -> channel.quality ?: "LIVE"
+                        channel.urls.isNotEmpty() -> "${channel.allSources().size} sources"
+                        else -> "LIVE"
+                    },
+                    color = PotatoAccent,
+                    style = MaterialTheme.typography.labelMedium
+                )
+                Spacer(Modifier.weight(1f))
+                if (focused) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = PotatoAccent, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
+        Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                when {
-                    channel.quality != null -> channel.quality ?: "LIVE"
-                    channel.urls.isNotEmpty() -> "${channel.allSources().size} sources"
-                    else -> "LIVE"
-                },
-                color = PotatoAccent,
+                listOfNotNull(
+                    channel.quality?.takeIf { !it.equals("LIVE", true) },
+                    channel.countryName,
+                    "Details"
+                ).joinToString(" · "),
+                color = if (focused) PotatoAccent else PotatoLine,
                 style = MaterialTheme.typography.labelMedium
             )
             Spacer(Modifier.weight(1f))
-            if (focused) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = PotatoAccent, modifier = Modifier.size(18.dp))
+            IconButton(onClick = onDetails, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Filled.Info, contentDescription = "Channel details", tint = PotatoAccent, modifier = Modifier.size(17.dp))
             }
         }
     }

@@ -224,11 +224,11 @@ fun SettingsScreen(@Suppress("UNUSED_PARAMETER") nav: NavController) {
                 title = "Playback & browsing",
                 subtitle = "These apply to the built-in browser and the native player."
             ) {
-                Text(
-                    "Detected streams are shown as a button. The site's own player keeps playing unless you choose to open the stream in PotatoTV's player.",
-                    color = PotatoTextDim,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                ToggleRow(
+                    title = "Show detected stream prompts",
+                    subtitle = "Offer a button when a stream is found. Turn off to never see the prompt again.",
+                    checked = settings.showStreamPrompts
+                ) { save("showStreamPrompts", it) }
                 ToggleRow(
                     title = "Ad & popup blocking",
                     subtitle = "Blocks known ad, tracker and popunder hosts before they load.",

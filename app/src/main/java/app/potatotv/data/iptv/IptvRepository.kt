@@ -44,9 +44,19 @@ private data class StreamDto(
 )
 
 @Serializable
+private data class FeedDto(
+    val channel: String? = null,
+    val languages: List<String> = emptyList(),
+    val timezones: List<String> = emptyList(),
+    val format: String? = null
+)
+
+@Serializable
 private data class CategoryDto(val id: String = "", val name: String = "")
 @Serializable
 private data class CountryDto(val code: String = "", val name: String = "", val flag: String = "")
+@Serializable
+private data class LanguageDto(val code: String = "", val name: String = "")
 
 /**
  * Loads the public iptv-org catalogue (31k channels / 18k streams) and keeps a
@@ -73,12 +83,14 @@ class IptvRepository(private val context: Context) {
         val streamsFile = File(dir, "streams.json")
         val categoriesFile = File(dir, "categories.json")
         val countriesFile = File(dir, "countries.json")
+        val feedsFile = File(dir, "feeds.json")
+        val languagesFile = File(dir, "languages.json")
 
         val fresh = !force && channelsFile.exists() &&
             System.currentTimeMillis() - channelsFile.lastModified() < 24 * 60 * 60 * 1000L
 
         val payloads: Payloads = if (fresh) {
-            readCache(channelsFile, streamsFile, categoriesFile, countriesFile)
+            readCache(channelsFile, streamsFile, categoriesFile, countriesFile, feedsFile, languagesFile)
         } else {
             try {
                 val fetched = coroutineScope {
@@ -86,16 +98,20 @@ class IptvRepository(private val context: Context) {
                     val s = async { download("https://iptv-org.github.io/api/streams.json") }
                     val cat = async { download("https://iptv-org.github.io/api/categories.json") }
                     val co = async { download("https://iptv-org.github.io/api/countries.json") }
-                    Payloads(c.await(), s.await(), cat.await(), co.await())
+                    val f = async { runCatching { download("https://iptv-org.github.io/api/feeds.json") }.getOrDefault("[]") }
+                    val lang = async { runCatching { download("https://iptv-org.github.io/api/languages.json") }.getOrDefault("[]") }
+                    Payloads(c.await(), s.await(), cat.await(), co.await(), f.await(), lang.await())
                 }
                 channelsFile.writeText(fetched.channels)
                 streamsFile.writeText(fetched.streams)
                 categoriesFile.writeText(fetched.categories)
                 countriesFile.writeText(fetched.countries)
+                feedsFile.writeText(fetched.feeds)
+                languagesFile.writeText(fetched.languages)
                 fetched
             } catch (t: Throwable) {
                 if (!channelsFile.exists()) throw t
-                readCache(channelsFile, streamsFile, categoriesFile, countriesFile)
+                readCache(channelsFile, streamsFile, categoriesFile, countriesFile, feedsFile, languagesFile)
             }
         }
 
@@ -103,27 +119,35 @@ class IptvRepository(private val context: Context) {
         val streams = json.decodeFromString(ListSerializerHolder.streams, payloads.streams)
         val categories = json.decodeFromString(ListSerializerHolder.categories, payloads.categories)
         val countries = json.decodeFromString(ListSerializerHolder.countries, payloads.countries)
+        val feeds = json.decodeFromString(ListSerializerHolder.feeds, payloads.feeds)
+        val languages = json.decodeFromString(ListSerializerHolder.languages, payloads.languages)
 
-        return join(channels, streams, categories, countries)
+        return join(channels, streams, categories, countries, feeds, languages)
     }
 
     private fun readCache(
         channels: File,
         streams: File,
         categories: File,
-        countries: File
+        countries: File,
+        feeds: File,
+        languages: File
     ) = Payloads(
         channels = channels.readText(),
         streams = streams.readText(),
         categories = categories.readText(),
-        countries = countries.readText()
+        countries = countries.readText(),
+        feeds = if (feeds.exists()) feeds.readText() else "[]",
+        languages = if (languages.exists()) languages.readText() else "[]"
     )
 
     private data class Payloads(
         val channels: String,
         val streams: String,
         val categories: String,
-        val countries: String
+        val countries: String,
+        val feeds: String = "[]",
+        val languages: String = "[]"
     )
 
     private suspend fun download(url: String): String {
@@ -136,10 +160,14 @@ class IptvRepository(private val context: Context) {
         channels: List<ChannelDto>,
         streams: List<StreamDto>,
         categories: List<CategoryDto>,
-        countries: List<CountryDto>
+        countries: List<CountryDto>,
+        feeds: List<FeedDto>,
+        languages: List<LanguageDto>
     ): IptvData {
         val categoryNames = categories.associate { it.id to it.name }
         val countryNames = countries.associate { it.code to it }
+        val languageNames = languages.associate { it.code to it.name }
+        val feedsByChannel = feeds.filter { !it.channel.isNullOrBlank() }.groupBy { it.channel!! }
         val streamsByChannel = streams.asSequence()
             .filter { !it.channel.isNullOrBlank() && it.url.isNotBlank() }
             .groupBy { it.channel!! }
@@ -151,6 +179,10 @@ class IptvRepository(private val context: Context) {
             val ordered = list.sortedByDescending { qualityScore(it.quality) }
             val first = ordered.first()
             val categoryIds = c.categories
+            val channelLanguages = feedsByChannel[c.id].orEmpty()
+                .asSequence().flatMap { it.languages.asSequence() }
+                .map { languageNames[it] ?: it }
+                .distinct().take(4).toList()
             result += Channel(
                 id = c.id,
                 name = c.name,
@@ -161,6 +193,7 @@ class IptvRepository(private val context: Context) {
                 categories = categoryIds,
                 country = c.country,
                 countryName = c.country?.let { countryNames[it]?.name },
+                languages = channelLanguages,
                 quality = first.quality,
                 referrer = first.referrer,
                 userAgent = first.user_agent
@@ -197,5 +230,7 @@ class IptvRepository(private val context: Context) {
         val streams = kotlinx.serialization.builtins.ListSerializer(StreamDto.serializer())
         val categories = kotlinx.serialization.builtins.ListSerializer(CategoryDto.serializer())
         val countries = kotlinx.serialization.builtins.ListSerializer(CountryDto.serializer())
+        val feeds = kotlinx.serialization.builtins.ListSerializer(FeedDto.serializer())
+        val languages = kotlinx.serialization.builtins.ListSerializer(LanguageDto.serializer())
     }
 }

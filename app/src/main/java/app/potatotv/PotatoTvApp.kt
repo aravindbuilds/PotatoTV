@@ -10,6 +10,7 @@ import app.potatotv.data.net.Http
 import app.potatotv.data.prefs.Prefs
 import app.potatotv.data.simkl.SimklRepository
 import app.potatotv.data.subtitles.SubtitleRepository
+import app.potatotv.data.tv.TvIntelligenceRepository
 import app.potatotv.data.update.UpdateChecker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +30,7 @@ object ServiceLocator {
     lateinit var simkl: SimklRepository
     lateinit var updates: UpdateChecker
     lateinit var adBlocker: AdBlocker
+    lateinit var tvIntel: TvIntelligenceRepository
     lateinit var appContext: Context
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -46,11 +48,15 @@ object ServiceLocator {
             simkl = SimklRepository()
             updates = UpdateChecker(appContext)
             adBlocker = AdBlocker(appContext).apply { load() }
+            tvIntel = TvIntelligenceRepository(appContext)
             ready = true
 
             scope.launch {
                 prefs.ensureSeeded()
                 prefs.settings.collectLatest { Http.configureProxy(it) }
+                // Metadata and EPG are independent of playback: failures never
+                // stop channels from being playable.
+                runCatching { tvIntel.initialize() }
             }
         }
     }

@@ -166,10 +166,21 @@ data class Channel(
     val referrer: String? = null,
     val userAgent: String? = null,
     val playlistId: String? = null,
-    val playlistName: String? = null
+    val playlistName: String? = null,
+    /** Human-readable languages from provider feeds or playlist attributes. */
+    val languages: List<String> = emptyList(),
+    val description: String? = null,
+    /** Id of the canonical intelligence record, when metadata has been built. */
+    val canonicalId: String? = null,
+    /** Locally recorded popularity and recency. Never supplied by a provider. */
+    val viewCount: Int = 0,
+    val lastViewedAt: Long = 0L
 ) {
     fun allSources(): List<String> = (listOf(url) + urls).filter { it.isNotBlank() }.distinct()
 }
+
+@Serializable
+data class ChannelView(val count: Int = 0, val lastViewedAt: Long = 0L)
 
 @Serializable
 data class Progress(
@@ -211,6 +222,8 @@ data class AppSettings(
     val darkPages: Boolean = true,
     val desktopUserAgent: Boolean = true,
     val autoPlayStreams: Boolean = true,
+    /** Master switch for the detected-stream popup. Can be turned off forever. */
+    val showStreamPrompts: Boolean = true,
     val cursorMode: Boolean = false,
     val openSubtitlesKey: String = "",
     val simklClientId: String = "",

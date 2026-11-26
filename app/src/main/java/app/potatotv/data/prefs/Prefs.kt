@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.potatotv.data.model.AppSettings
+import app.potatotv.data.model.ChannelView
 import app.potatotv.data.model.DeeplistEntry
 import app.potatotv.data.model.MetaPreview
 import app.potatotv.data.model.Playlist
@@ -47,6 +48,7 @@ class Prefs(private val context: Context) {
             darkPages = p[DARK_PAGES] ?: true,
             desktopUserAgent = p[DESKTOP_UA] ?: true,
             autoPlayStreams = p[AUTO_PLAY] ?: true,
+            showStreamPrompts = p[SHOW_STREAM_PROMPTS] ?: true,
             cursorMode = p[CURSOR_MODE] ?: false,
             openSubtitlesKey = p[SUBTITLE_KEY] ?: "",
             simklClientId = p[SIMKL_CLIENT] ?: "",
@@ -79,6 +81,8 @@ class Prefs(private val context: Context) {
     val progress: Flow<Map<String, Progress>> = store.data.map { decodeProgress(it[PROGRESS]) }.distinctUntilChanged()
     val starredChannels: Flow<Set<String>> = store.data.map { it[STARRED_CHANNELS] ?: emptySet() }.distinctUntilChanged()
     val workingChannels: Flow<Set<String>> = store.data.map { it[WORKING_CHANNELS] ?: emptySet() }.distinctUntilChanged()
+    /** Locally observed channel popularity. No provider contributes to this. */
+    val channelViews: Flow<Map<String, ChannelView>> = store.data.map { decodeViews(it[CHANNEL_VIEWS]) }.distinctUntilChanged()
 
     suspend fun ensureSeeded() {
         store.edit { p ->
@@ -241,6 +245,26 @@ class Prefs(private val context: Context) {
         store.edit { it[WORKING_CHANNELS] = ids }
     }
 
+    suspend fun recordChannelView(id: String) {
+        store.edit { p ->
+            val current = decodeViews(p[CHANNEL_VIEWS]).toMutableMap()
+            val existing = current[id] ?: ChannelView()
+            current[id] = ChannelView(existing.count + 1, System.currentTimeMillis())
+            // Keep storage bounded to the 300 most recently opened channels.
+            p[CHANNEL_VIEWS] = json.encodeToString(
+                MapSerializer(String.serializer(), ChannelView.serializer()),
+                current.entries.sortedByDescending { it.value.lastViewedAt }.take(300).associate { it.key to it.value }
+            )
+        }
+    }
+
+    private fun decodeViews(raw: String?): Map<String, ChannelView> {
+        if (raw.isNullOrBlank()) return emptyMap()
+        return runCatching {
+            json.decodeFromString(MapSerializer(String.serializer(), ChannelView.serializer()), raw)
+        }.getOrDefault(emptyMap())
+    }
+
     suspend fun setSetting(key: String, value: Any) {
         store.edit { p ->
             when (key) {
@@ -250,6 +274,7 @@ class Prefs(private val context: Context) {
                 "darkPages" -> p[DARK_PAGES] = value as Boolean
                 "desktopUserAgent" -> p[DESKTOP_UA] = value as Boolean
                 "autoPlayStreams" -> p[AUTO_PLAY] = value as Boolean
+                "showStreamPrompts" -> p[SHOW_STREAM_PROMPTS] = value as Boolean
                 "cursorMode" -> p[CURSOR_MODE] = value as Boolean
                 "openSubtitlesKey" -> p[SUBTITLE_KEY] = value as String
                 "simklClientId" -> p[SIMKL_CLIENT] = value as String
@@ -393,6 +418,7 @@ class Prefs(private val context: Context) {
         val DARK_PAGES = booleanPreferencesKey("dark_pages")
         val DESKTOP_UA = booleanPreferencesKey("desktop_ua")
         val AUTO_PLAY = booleanPreferencesKey("auto_play")
+        val SHOW_STREAM_PROMPTS = booleanPreferencesKey("show_stream_prompts")
         val CURSOR_MODE = booleanPreferencesKey("cursor_mode")
         val SUBTITLE_KEY = stringPreferencesKey("subtitle_key")
         val SIMKL_CLIENT = stringPreferencesKey("simkl_client")
@@ -424,5 +450,6 @@ class Prefs(private val context: Context) {
         val PROGRESS = stringPreferencesKey("progress")
         val STARRED_CHANNELS = stringSetPreferencesKey("starred_channels")
         val WORKING_CHANNELS = stringSetPreferencesKey("working_channels")
+        val CHANNEL_VIEWS = stringPreferencesKey("channel_views")
     }
 }

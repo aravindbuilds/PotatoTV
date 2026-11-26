@@ -92,6 +92,8 @@ fun HomeScreen(nav: NavController) {
     val rows = state.rows
     val continuing = progress.values
         .filter { it.durationMs > 0 && it.positionMs > 10_000 }
+        .filter { !it.key.startsWith("iptv:") }
+        .filter { it.imdbId?.startsWith("tt") == true }
         .sortedByDescending { it.updatedAt }
         .take(12)
 
@@ -123,7 +125,7 @@ fun HomeScreen(nav: NavController) {
                         item = hero,
                         progress = progress[hero.id],
                         inMyList = myList.any { it.id == hero.id },
-                        onPlay = { nav.navigate("title/${hero.type}/${hero.id}?autoplay=1") },
+                        onPlay = { nav.navigate("title/${hero.type}/${hero.id}") },
                         onToggleList = {
                             scope.launch { ServiceLocator.prefs.toggleMyList(hero) }
                         },

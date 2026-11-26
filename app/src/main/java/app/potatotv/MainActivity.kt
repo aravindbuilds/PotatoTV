@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,10 +66,6 @@ fun PotatoApp() {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
-    var startRoute by rememberSaveable { mutableStateOf("home") }
-    if (route?.startsWith("browser") == true || route?.startsWith("title/") == true) {
-        startRoute = route
-    }
     val hideChrome = route?.startsWith("browser") == true
     val compact = isCompactScreen()
 
@@ -91,7 +89,7 @@ fun PotatoApp() {
         Column(Modifier.fillMaxSize()) {
         NavHost(
             navController = nav,
-            startDestination = startRoute,
+            startDestination = "home",
             modifier = Modifier.weight(1f)
         ) {
             composable("home") {
@@ -113,33 +111,35 @@ fun PotatoApp() {
                 SettingsScreen(nav)
             }
             composable(
-                "title/{type}/{id}?autoplay={autoplay}",
+                "title/{type}/{id}",
                 arguments = listOf(
                     navArgument("type") { type = NavType.StringType },
-                    navArgument("id") { type = NavType.StringType },
-                    navArgument("autoplay") { type = NavType.StringType; defaultValue = "0" }
+                    navArgument("id") { type = NavType.StringType }
                 )
             ) { backStackEntry ->
                 TitleScreen(
                     nav = nav,
                     type = backStackEntry.arguments?.getString("type") ?: "movie",
-                    id = backStackEntry.arguments?.getString("id") ?: "",
-                    autoplay = backStackEntry.arguments?.getString("autoplay") == "1"
+                    id = backStackEntry.arguments?.getString("id") ?: ""
                 )
             }
             composable(
-                "browser?url={url}&name={name}&siteId={siteId}",
+                "browser?url={url}&name={name}&siteId={siteId}&imdb={imdb}&type={type}",
                 arguments = listOf(
                     navArgument("url") { type = NavType.StringType; defaultValue = "" },
                     navArgument("name") { type = NavType.StringType; defaultValue = "" },
-                    navArgument("siteId") { type = NavType.StringType; defaultValue = "" }
+                    navArgument("siteId") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("imdb") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("type") { type = NavType.StringType; defaultValue = "" }
                 )
             ) { backStackEntry ->
                 BrowserScreen(
                     nav = nav,
                     url = backStackEntry.arguments?.getString("url").orEmpty(),
                     name = backStackEntry.arguments?.getString("name").orEmpty(),
-                    siteId = backStackEntry.arguments?.getString("siteId").orEmpty()
+                    siteId = backStackEntry.arguments?.getString("siteId").orEmpty(),
+                    imdb = backStackEntry.arguments?.getString("imdb").orEmpty(),
+                    type = backStackEntry.arguments?.getString("type").orEmpty()
                 )
             }
         }

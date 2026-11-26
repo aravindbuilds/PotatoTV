@@ -6,6 +6,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.ByteArrayOutputStream
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.util.concurrent.TimeUnit
@@ -129,6 +130,103 @@ object Http {
         client.newCall(request(url, headers, userAgent)).execute().use { response ->
             if (!response.isSuccessful) error("HTTP ${response.code} for $url")
             response.body?.bytes() ?: error("Empty response for $url")
+        }
+    }
+
+    /** Bounded, conditional resource fetch used by metadata and EPG loaders. */
+    data class Resource(
+        val body: String?,
+        val notModified: Boolean,
+        val etag: String?,
+        val lastModified: String?,
+        val code: Int
+    )
+
+    suspend fun getResource(
+        url: String,
+        maxBytes: Int = 40 * 1024 * 1024,
+        ifNoneMatch: String? = null,
+        ifModifiedSince: String? = null,
+        userAgent: String = DESKTOP_UA
+    ): Resource = withContext(Dispatchers.IO) {
+        val builder = request(url, userAgent = userAgent).newBuilder()
+        ifNoneMatch?.takeIf { it.isNotBlank() }?.let { builder.header("If-None-Match", it) }
+        ifModifiedSince?.takeIf { it.isNotBlank() }?.let { builder.header("If-Modified-Since", it) }
+        client.newCall(builder.build()).execute().use { response ->
+            if (response.code == 304) {
+                return@use Resource(null, true, response.header("ETag"), response.header("Last-Modified"), 304)
+            }
+            if (!response.isSuccessful) error("HTTP ${response.code} for $url")
+            val stream = response.body?.byteStream() ?: error("Empty response for $url")
+            val buffer = ByteArrayOutputStream(minOf(maxBytes, 64 * 1024))
+            val chunk = ByteArray(16 * 1024)
+            var total = 0
+            while (true) {
+                val read = stream.read(chunk)
+                if (read < 0) break
+                total += read
+                if (total > maxBytes) error("Response too large (> ${maxBytes / 1024 / 1024} MB) for $url")
+                buffer.write(chunk, 0, read)
+            }
+            val charset = response.body?.contentType()?.charset() ?: Charsets.UTF_8
+            Resource(
+                body = String(buffer.toByteArray(), charset),
+                notModified = false,
+                etag = response.header("ETag"),
+                lastModified = response.header("Last-Modified"),
+                code = response.code
+            )
+        }
+    }
+
+    data class BinaryResource(
+        val bytes: ByteArray?,
+        val notModified: Boolean,
+        val etag: String?,
+        val lastModified: String?,
+        val code: Int
+    )
+
+    /**
+     * Bounded binary fetch. Setting acceptEncoding to "identity" prevents
+     * OkHttp's transparent gzip decoding so callers can stream-decompress a
+     * .gz EPG file with a GZIPInputStream instead of buffering the whole guide.
+     */
+    suspend fun getBinaryResource(
+        url: String,
+        maxBytes: Int = 32 * 1024 * 1024,
+        ifNoneMatch: String? = null,
+        ifModifiedSince: String? = null,
+        acceptEncoding: String? = null,
+        userAgent: String = DESKTOP_UA
+    ): BinaryResource = withContext(Dispatchers.IO) {
+        val builder = request(url, userAgent = userAgent).newBuilder()
+        ifNoneMatch?.takeIf { it.isNotBlank() }?.let { builder.header("If-None-Match", it) }
+        ifModifiedSince?.takeIf { it.isNotBlank() }?.let { builder.header("If-Modified-Since", it) }
+        acceptEncoding?.let { builder.header("Accept-Encoding", it) }
+        client.newCall(builder.build()).execute().use { response ->
+            if (response.code == 304) {
+                return@use BinaryResource(null, true, response.header("ETag"), response.header("Last-Modified"), 304)
+            }
+            if (!response.isSuccessful) error("HTTP ${response.code} for $url")
+            val stream = response.body?.byteStream() ?: error("Empty response for $url")
+            val buffer = ByteArrayOutputStream(minOf(maxBytes, 64 * 1024))
+            val chunk = ByteArray(16 * 1024)
+            var total = 0
+            while (true) {
+                val read = stream.read(chunk)
+                if (read < 0) break
+                total += read
+                if (total > maxBytes) error("Response too large for EPG source")
+                buffer.write(chunk, 0, read)
+            }
+            BinaryResource(
+                bytes = buffer.toByteArray(),
+                notModified = false,
+                etag = response.header("ETag"),
+                lastModified = response.header("Last-Modified"),
+                code = response.code
+            )
         }
     }
 

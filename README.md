@@ -19,6 +19,7 @@ PotatoTV opens third-party sites in a built-in browser, blocks ads and pop-ups, 
 - Site ranking: your favourites and frequently opened sites first, then FMHY 🌟 picks and 10/10 graded sites, with wiki order as the tie-breaker.
 - Built-in ad blocker: 158k-domain blocklist, pop-up/redirect handling, ad-container hiding, dark pages and a D-pad cursor mode.
 - Live TV via iptv-org, plus your own M3U / Xtream playlists. No 18+ playlists are bundled.
+- TV intelligence layer: channel identity/deduplication, field-level metadata provenance, XMLTV EPG (India enabled by default), Now/Next, full TV guide, programme search, language/genre filters and locally tracked popularity sorting. See [docs/IPTV_INTELLIGENCE.md](docs/IPTV_INTELLIGENCE.md).
 - Native HLS / DASH / progressive player with quality, speed, subtitles, audio and track selection. Detected streams are manual — the site's own player keeps playing unless you choose ours.
 - Simkl scrobbling, OpenSubtitles, GitHub update checker, and an honest HTTP/SOCKS5 proxy option (no bundled WireGuard helper).
 

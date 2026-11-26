@@ -109,7 +109,9 @@ fun BrowserScreen(
     nav: NavController,
     url: String,
     name: String,
-    siteId: String
+    siteId: String,
+    imdb: String = "",
+    type: String = ""
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -219,6 +221,8 @@ fun BrowserScreen(
                     kind = kind,
                     title = title,
                     resumeKey = stream.url,
+                    imdbId = imdb.ifBlank { null },
+                    type = type.ifBlank { "movie" },
                     headers = headers
                 )
             )
@@ -410,14 +414,14 @@ fun BrowserScreen(
         BrowserSession.setCursor(settings.cursorMode)
     }
 
-    LaunchedEffect(dismissedStreams) {
+    LaunchedEffect(dismissedStreams, settings.showStreamPrompts) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             BrowserSession.events.collect { event ->
                 when (event) {
                     is BrowserEvent.Stream -> {
                         // Only surface the stream. The site keeps playing its own
                         // video; the user can open the native player explicitly.
-                        if (event.stream.url !in dismissedStreams) {
+                        if (settings.showStreamPrompts && event.stream.url !in dismissedStreams) {
                             detected = event.stream
                         }
                     }
@@ -629,13 +633,18 @@ fun BrowserScreen(
                                 style = MaterialTheme.typography.titleMedium
                             )
                             Text(
-                                stream.url.substringBefore('?').takeLast(54),
+                                runCatching { java.net.URI(stream.url).host }.getOrNull()
+                                    ?: stream.url.take(24),
                                 color = PotatoTextDim,
                                 fontSize = 10.sp,
                                 maxLines = 1
                             )
                         }
                         Spacer(Modifier.width(14.dp))
+                        TextRailAction("Never") {
+                            scope.launch { ServiceLocator.prefs.setSetting("showStreamPrompts", false) }
+                            detected = null
+                        }
                         TextRailAction("Play") {
                             lastLaunchUrl = stream.url
                             lastLaunchAt = SystemClock.elapsedRealtime()

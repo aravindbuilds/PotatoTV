@@ -364,7 +364,6 @@ fun PosterCard(
             .width(width.dp)
             .scale(scale)
             .onFocusChanged { focused = it.isFocused }
-            .clip(radius)
             .border(
                 if (focused) 2.dp else 1.dp,
                 if (focused) PotatoAccent else PotatoLine.copy(alpha = 0.6f),
@@ -454,7 +453,8 @@ fun PosterCard(
             color = if (focused) PotatoText else PotatoTextDim,
             style = MaterialTheme.typography.bodyMedium,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 4.dp)
         )
     }
 }
