@@ -83,7 +83,7 @@ fun GuidePane(
     onProgramme: (Programme) -> Unit,
     onChannel: (CanonicalChannel) -> Unit
 ) {
-    val channels = remember(vm.tick, vm.intelligenceReady) { vm.guideChannels().take(80) }
+    val channels = remember(vm.tick, vm.intelligenceReady, vm.language) { vm.guideChannels().take(80) }
     if (channels.isEmpty()) {
         EmptyState(
             title = "No schedules yet",

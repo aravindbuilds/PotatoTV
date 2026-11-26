@@ -97,7 +97,9 @@ data class Site(
     /** FMHY wiki order — lower means it appeared earlier in Streaming.md. */
     val order: Int = Int.MAX_VALUE,
     /** Sites flagged 🌟/⭐ in the public FMHY wiki. */
-    val starred: Boolean = false
+    val starred: Boolean = false,
+    /** Comes from the primary title-template directory used for playback. */
+    val primaryTemplate: Boolean = false
 )
 
 /** FMHY grades out of 18, shown to users as a friendlier 0–10 score. */

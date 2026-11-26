@@ -87,6 +87,7 @@ import app.potatotv.data.iptv.IptvCountry
 import app.potatotv.data.model.Channel
 import app.potatotv.data.model.AppSettings
 import app.potatotv.data.model.Playlist
+import app.potatotv.data.tv.ChannelIdentity
 import app.potatotv.data.tv.NowNext
 import app.potatotv.ui.components.EmptyState
 import app.potatotv.ui.components.LoadingState
@@ -204,8 +205,8 @@ fun IptvScreen(nav: NavController) {
     val categoryName = categories.firstOrNull { it.id == vm.category }?.name
     val countryName = countries.firstOrNull { it.code == vm.country }?.name
     val languageOptions = remember(baseChannels) {
-        baseChannels.asSequence().flatMap { it.languages.asSequence() }
-            .filter { it.isNotBlank() }.distinct().sorted().take(40).toList()
+        baseChannels.asSequence().flatMap { it.languageKeys().asSequence() }
+            .distinct().sorted().take(40).toList()
     }
     val genreOptions = remember(baseChannels) {
         baseChannels.asSequence().flatMap { it.categories.asSequence() }
@@ -222,13 +223,13 @@ fun IptvScreen(nav: NavController) {
                 channel.name.contains(q, ignoreCase = true) ||
                 channel.group?.contains(q, ignoreCase = true) == true ||
                 channel.description?.contains(q, ignoreCase = true) == true ||
-                channel.languages.any { it.contains(q, ignoreCase = true) } ||
+                channel.languageKeys().any { it.contains(q, ignoreCase = true) } ||
                 channel.playlistName?.contains(q, ignoreCase = true) == true
             val matchesCategory = vm.category == null ||
                 vm.category in channel.categories ||
                 channel.group == categoryName
             val matchesCountry = vm.country == null || channel.country == vm.country
-            val matchesLanguage = vm.language == null || channel.languages.any { it.equals(vm.language, true) }
+            val matchesLanguage = vm.language == null || channel.languageKeys().contains(vm.language)
             val matchesTab = when (vm.tab) {
                 IptvTab.Starred -> channel.id in starred
                 IptvTab.Working -> channel.id in working
@@ -428,7 +429,7 @@ fun IptvScreen(nav: NavController) {
                 Modifier
                     .fillMaxWidth()
                     .padding(horizontal = hPad)
-                    .then(if (compact) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
+                    .horizontalScroll(rememberScrollState()),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -443,9 +444,21 @@ fun IptvScreen(nav: NavController) {
                     ) { vm.sort = mode }
                 }
                 if (languageOptions.isNotEmpty()) {
+                    TabPill(
+                        label = "All languages",
+                        selected = vm.language == null
+                    ) { vm.language = null }
+                    languageOptions.take(12).forEach { language ->
+                        TabPill(
+                            label = displayLanguage(language),
+                            selected = vm.language == language
+                        ) {
+                            vm.language = if (vm.language == language) null else language
+                        }
+                    }
                     FilterPill(
-                        label = vm.language?.let { "Language: $it" } ?: "All languages",
-                        active = vm.language != null
+                        label = "More…",
+                        active = false
                     ) { showLanguages = true }
                 }
                 if (genreOptions.isNotEmpty()) {
@@ -472,8 +485,9 @@ fun IptvScreen(nav: NavController) {
                 PlaylistChannelPane(
                     vm = vm,
                     starred = starred,
-                    onPlay = { playChannel(context, it) },
-                    onStar = { channel -> scope.launch { ServiceLocator.prefs.toggleStarChannel(channel.id) } }
+                    onPlay = { playChannel(context, it); vm.recordPlay(it) },
+                    onStar = { channel -> scope.launch { ServiceLocator.prefs.toggleStarChannel(channel.id) } },
+                    onDetails = { vm.openDetails(it) }
                 )
             }
             vm.tab == IptvTab.Playlists -> {
@@ -529,9 +543,7 @@ fun IptvScreen(nav: NavController) {
                         nowNext = vm.nowNext[channel.canonicalId ?: channel.id],
                         onClick = { playChannel(context, channel); vm.recordPlay(channel) },
                         onStar = { scope.launch { ServiceLocator.prefs.toggleStarChannel(channel.id) } },
-                        onDetails = {
-                            vm.selectedChannel = ServiceLocator.tvIntel.channel(channel.canonicalId ?: channel.id)
-                        }
+                        onDetails = { vm.openDetails(channel) }
                     )
                 }
             }
@@ -573,7 +585,7 @@ fun IptvScreen(nav: NavController) {
     if (showLanguages) {
         FilterPickerDialog(
             title = "Language",
-            options = listOf("All languages" to null) + languageOptions.map { it to it },
+            options = listOf("All languages" to null) + languageOptions.map { displayLanguage(it) to it },
             selected = vm.language,
             onSelect = { vm.language = it; showLanguages = false },
             onDismiss = { showLanguages = false }
@@ -614,7 +626,10 @@ fun IptvScreen(nav: NavController) {
                 vm.selectedChannel = null
             },
             schedule = { from, to -> vm.schedule(selected.epgIds.firstOrNull().orEmpty(), from, to) },
-            onProgramme = { vm.selectedProgramme = it }
+            onProgramme = { vm.selectedProgramme = it },
+            onToggleStar = {
+                scope.launch { ServiceLocator.prefs.toggleStarChannel(selected.id) }
+            }
         )
     }
 
@@ -634,12 +649,30 @@ fun IptvScreen(nav: NavController) {
                             referrer = stream.referrer, userAgent = stream.userAgent
                         )
                     )
+                } else {
+                    // iptv-org catalogue channels are not canonical records;
+                    // their id is the XMLTV id, so match directly.
+                    vm.data?.channels?.firstOrNull { it.id.equals(epgId, true) }?.let { fallback ->
+                        playChannel(context, fallback)
+                        vm.recordPlay(fallback)
+                    }
                 }
                 vm.selectedProgramme = null
             }
         )
     }
 }
+
+/** Language keys are lowercase so playlist, provider and EPG sources agree. */
+private fun Channel.languageKeys(): Set<String> = buildSet {
+    languages.forEach { add(it.trim().lowercase()) }
+    group?.let { addAll(ChannelIdentity.feedHints(it)) }
+    categories.forEach { addAll(ChannelIdentity.feedHints(it)) }
+    addAll(ChannelIdentity.feedHints(name))
+}.filter { it.isNotBlank() }.toSet()
+
+private fun displayLanguage(key: String): String =
+    key.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 
 private fun playChannel(context: Context, channel: Channel) {
     val headers = buildMap {
@@ -988,7 +1021,8 @@ private fun PlaylistChannelPane(
     vm: IptvViewModel,
     starred: Set<String>,
     onPlay: (Channel) -> Unit,
-    onStar: (Channel) -> Unit
+    onStar: (Channel) -> Unit,
+    onDetails: (Channel) -> Unit
 ) {
     val channels = vm.playlistChannels
     if (vm.playlistLoading) {
@@ -1028,7 +1062,9 @@ private fun PlaylistChannelPane(
                 starred = channel.id in starred,
                 working = false,
                 onClick = { onPlay(channel) },
-                onStar = { onStar(channel) }
+                onStar = { onStar(channel) },
+                nowNext = vm.nowNext[channel.canonicalId ?: channel.id],
+                onDetails = { onDetails(channel) }
             )
         }
     }

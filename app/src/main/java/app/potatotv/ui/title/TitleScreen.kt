@@ -128,7 +128,7 @@ fun TitleScreen(nav: NavController, type: String, id: String) {
     val saved = progress[detail.id]
     val seasons = detail.seasons()
     val episodes = detail.videos.filter { it.season == season }.sortedBy { it.episode ?: 0 }
-    val sorted = sites.filter { it.canPlayTitle }.sortedWith(
+    val sorted = sites.filter { it.canPlayTitle && it.primaryTemplate }.sortedWith(
         compareByDescending<Site> { it.popularityScore(favorites) }
             .thenBy { it.order }
             .thenBy { it.name }
@@ -526,7 +526,7 @@ private fun SitePickerDialog(
     onAddSite: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val sorted = sites.filter { it.canPlayTitle }.sortedWith(
+    val sorted = sites.filter { it.canPlayTitle && it.primaryTemplate }.sortedWith(
         compareByDescending<Site> { it.popularityScore(favorites) }
             .thenBy { it.order }
             .thenBy { it.name }

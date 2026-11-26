@@ -47,12 +47,14 @@ object FmhyWiki {
                 SiteDirectory.parse(Http.getText(BakedSources.DEEPLINKS_URL)).titleSites
             }.getOrDefault(emptyList())
         }
-        val bakedDef = async {
-            runCatching {
-                val raw = app.potatotv.ServiceLocator.appContext.assets
-                    .open("title_templates.json").bufferedReader().use { it.readText() }
-                SiteDirectory.parse(raw).titleSites
-            }.getOrDefault(emptyList())
+        val primaryDef = async {
+            val raw = runCatching { Http.getText(BakedSources.TITLE_DEEPLINKS_URL) }
+                .getOrNull()
+                ?: runCatching {
+                    app.potatotv.ServiceLocator.appContext.assets
+                        .open("title_templates.json").bufferedReader().use { it.readText() }
+                }.getOrDefault("")
+            SiteDirectory.parse(raw).titleSites.map { it.copy(primaryTemplate = true) }
         }
         val gradesDef = async { FmhyGrading.load() }
         val wikiDef = async {
@@ -66,10 +68,10 @@ object FmhyWiki {
             }
         }
         val fmhyTemplates = fmhyDef.await()
-        val bakedTemplates = bakedDef.await()
-        val bakedHosts = bakedTemplates.mapNotNull { it.hostOf() }.toSet()
-        val templateSites = bakedTemplates +
-            fmhyTemplates.filterNot { it.hostOf() in bakedHosts }
+        val primaryTemplates = primaryDef.await()
+        val primaryHosts = primaryTemplates.mapNotNull { it.hostOf() }.toSet()
+        val templateSites = primaryTemplates +
+            fmhyTemplates.filterNot { it.hostOf() in primaryHosts }
         val grades = gradesDef.await()
         val wikiSites = wikiDef.await()
 
@@ -87,7 +89,8 @@ object FmhyWiki {
                     animeTemplate = t.animeTemplate.ifBlank { site.animeTemplate },
                     searchTemplate = t.movieTemplate.ifBlank { t.tvTemplate }
                         .ifBlank { site.searchTemplate },
-                    rating = FmhyGrading.scoreFor(site.name, grades)
+                    rating = FmhyGrading.scoreFor(site.name, grades),
+                    primaryTemplate = t.primaryTemplate
                 )
             } else site.copy(rating = FmhyGrading.scoreFor(site.name, grades))
         }

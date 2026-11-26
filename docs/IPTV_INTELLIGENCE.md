@@ -44,7 +44,8 @@ Therefore the intelligence layer was added as a **modular local Kotlin layer**, 
 ### UI (`ui/iptv/`)
 - New **Guide** tab: TV grid with channels vertical, proportional programme blocks, current programme highlighted, shared horizontal/vertical scrolling, programme and channel details; phone portrait uses a now/next list.
 - Channel cards now show current programme, progress, next programme, language and a details action.
-- **Language** and **Genre** filters are only shown when data exists.
+- **Language** and **Genre** filters are only shown when data exists. Language options combine provider languages, playlist `tvg-language`, group/category names and channel-name hints, so the selector works even with sparse metadata; chips are visible and D-pad focusable, with a "More…" picker for long lists. The same selection filters the Guide.
+- **Channel details** work for every channel: intelligence-backed channels use their canonical record; catalogue/playlist channels get a read-only detail view built from their existing metadata and EPG name match. Favourite and playback actions are wired.
 - Sort modes: **Most watched** (local view counts), **Recently watched**, and **A–Z**. Popularity is explicitly local: no provider supplies it.
 - Channel detail dialog: description, broadcaster, languages, feeds, quality claims with verification caveat, upcoming schedule, favourite/play.
 - Programme detail dialog: times, duration, category, season/episode, artwork, live/previously-shown, watch channel.

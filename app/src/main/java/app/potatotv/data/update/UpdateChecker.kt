@@ -37,7 +37,7 @@ private data class Asset(
     val size: Long = 0
 )
 
-/** In-app updates straight from GitHub Releases, like FMHYPlay. */
+/** In-app updates from GitHub Releases. */
 class UpdateChecker(private val context: Context) {
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -54,8 +54,10 @@ class UpdateChecker(private val context: Context) {
             userAgent = "PotatoTV/1.0"
         )
         val release = json.decodeFromString(Release.serializer(), body)
-        val apk = release.assets.firstOrNull { it.name.endsWith(".apk", true) && it.name.contains("TV", true) }
-            ?: release.assets.firstOrNull { it.name.endsWith(".apk", true) }
+        val wanted = if (app.potatotv.BuildConfig.FLAVOR == "mobile") "mobile" else "tv"
+        val apk = release.assets.firstOrNull {
+            it.name.endsWith(".apk", true) && it.name.contains(wanted, true)
+        } ?: release.assets.firstOrNull { it.name.endsWith(".apk", true) }
             ?: return null
         return UpdateInfo(
             version = release.tag_name.removePrefix("v"),

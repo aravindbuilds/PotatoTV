@@ -13,13 +13,13 @@ android {
         applicationId = "app.potatotv"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.01-beta"
+        versionCode = 2
+        versionName = "0.2"
 
         vectorDrawables.useSupportLibrary = true
 
         // Optional: point the in-app updater at your own GitHub repository.
-        buildConfigField("String", "DEFAULT_UPDATE_REPO", "\"\"")
+        buildConfigField("String", "DEFAULT_UPDATE_REPO", "\"aravindbuilds/PotatoTV\"")
     }
 
     flavorDimensions += "device"

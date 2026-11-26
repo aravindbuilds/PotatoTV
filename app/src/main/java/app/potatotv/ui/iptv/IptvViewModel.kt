@@ -15,10 +15,12 @@ import app.potatotv.data.model.ChannelView
 import app.potatotv.data.model.Playlist
 import app.potatotv.data.net.Http
 import app.potatotv.data.tv.CanonicalChannel
+import app.potatotv.data.tv.ChannelIdentity
 import app.potatotv.data.tv.IntelligenceStats
 import app.potatotv.data.tv.NowNext
 import app.potatotv.data.tv.PlaylistEntry
 import app.potatotv.data.tv.Programme
+import app.potatotv.data.tv.StreamSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -137,8 +139,18 @@ class IptvViewModel : ViewModel() {
         }
     }
 
-    fun guideChannels(): List<CanonicalChannel> =
-        ServiceLocator.tvIntel.allChannels().filter { it.epgIds.isNotEmpty() }
+    fun guideChannels(): List<CanonicalChannel> {
+        val selected = language?.lowercase()
+        return ServiceLocator.tvIntel.allChannels()
+            .filter { it.epgIds.isNotEmpty() }
+            .filter { channel ->
+                selected == null || buildSet {
+                    channel.languages.forEach { add(it.lowercase()) }
+                    addAll(ChannelIdentity.feedHints(channel.name))
+                    channel.categories.forEach { addAll(ChannelIdentity.feedHints(it)) }
+                }.contains(selected)
+            }
+    }
 
     fun schedule(epgId: String, from: Long, to: Long): List<Programme> =
         ServiceLocator.tvIntel.epg.schedule(epgId, from, to)
@@ -184,6 +196,41 @@ class IptvViewModel : ViewModel() {
 
     fun toggleStar(id: String) {
         viewModelScope.launch { ServiceLocator.prefs.toggleStarChannel(id) }
+    }
+
+    /**
+     * Catalogue and playlist channels may not have a canonical record yet.
+     * Build a read-only detail view from what the app already knows so the
+     * Details action always opens instead of silently doing nothing.
+     */
+    fun openDetails(channel: Channel) {
+        val canonical = ServiceLocator.tvIntel.channel(channel.canonicalId ?: channel.id)
+        selectedChannel = canonical ?: CanonicalChannel(
+            id = channel.canonicalId ?: channel.id,
+            name = channel.name,
+            aliases = emptyList(),
+            categories = channel.categories + listOfNotNull(channel.group),
+            country = channel.country,
+            countryName = channel.countryName,
+            languages = channel.languages,
+            logo = channel.logo,
+            description = channel.description,
+            qualityClaims = listOfNotNull(
+                channel.quality?.takeIf { !it.equals("LIVE", true) }
+            ),
+            streams = listOf(
+                StreamSource(
+                    url = channel.url,
+                    playlistId = channel.playlistId.orEmpty(),
+                    playlistName = channel.playlistName.orEmpty(),
+                    entryId = channel.id,
+                    referrer = channel.referrer,
+                    userAgent = channel.userAgent
+                )
+            ),
+            epgIds = ServiceLocator.tvIntel.epg.epgIdsForName(channel.name),
+            status = "unmatched"
+        )
     }
 
     fun recordPlay(channel: Channel) {

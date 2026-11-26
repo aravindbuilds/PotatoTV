@@ -178,7 +178,7 @@ fun SitesScreen(nav: NavController) {
                 Text("Sites", color = PotatoText, style = MaterialTheme.typography.headlineMedium)
                 Text(
                     "FMHY sources, sorted with the best first. Refresh to import the public wiki.",
-                    color = PotatoTextDim,
+                    color = PotatoText,
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Spacer(Modifier.height(10.dp))
@@ -247,14 +247,15 @@ fun SitesScreen(nav: NavController) {
                             Box(
                                 Modifier
                                     .fillMaxWidth()
-                                    .height(26.dp)
-                                    .background(PotatoBgElevated)
-                                    .border(1.dp, PotatoLine, RoundedCornerShape(8.dp))
+                                    .height(32.dp)
+                                    .background(PotatoSurface)
+                                    .border(1.dp, PotatoLine, RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     category.uppercase(),
-                                    color = PotatoTextDim,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = PotatoText,
+                                    style = MaterialTheme.typography.titleSmall,
                                     modifier = Modifier.padding(horizontal = 10.dp)
                                 )
                             }
@@ -317,7 +318,7 @@ private fun FilterChipSelected(label: String, selected: Boolean, onClick: () -> 
     ) {
         Text(
             label,
-            color = if (selected) PotatoAccent else PotatoTextDim,
+            color = if (selected) PotatoAccent else PotatoText,
             style = MaterialTheme.typography.labelLarge
         )
     }

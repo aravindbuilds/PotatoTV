@@ -53,7 +53,7 @@ class Prefs(private val context: Context) {
             openSubtitlesKey = p[SUBTITLE_KEY] ?: "",
             simklClientId = p[SIMKL_CLIENT] ?: "",
             simklToken = p[SIMKL_TOKEN] ?: "",
-            updateRepo = p[UPDATE_REPO] ?: "",
+            updateRepo = p[UPDATE_REPO] ?: app.potatotv.BuildConfig.DEFAULT_UPDATE_REPO,
             siteDirectoryUrl = p[SITE_DIRECTORY] ?: BakedSources.DEEPLINKS_URL,
             catalogProvider = p[CATALOG_PROVIDER] ?: "fmhy-sources",
             adultSources = p[ADULT_SOURCES] ?: false,
@@ -124,6 +124,21 @@ class Prefs(private val context: Context) {
                 }
                 p[ADULT_SOURCES] = false
                 p[SOURCES_VERSION] = 2
+            }
+
+            // Seed the title-template sites from the bundled backup so playback
+            // works before the first live refresh.
+            if ((p[SOURCES_VERSION] ?: 0) < 3) {
+                val raw = runCatching {
+                    context.assets.open("title_templates.json").bufferedReader().use { it.readText() }
+                }.getOrDefault("")
+                val primary = SiteDirectory.parse(raw).titleSites
+                    .map { it.copy(primaryTemplate = true) }
+                val primaryIds = primary.map { it.id }.toSet()
+                val current = decodeList(p[SITES], Site.serializer())
+                val next = current.filterNot { it.id in primaryIds } + primary
+                p[SITES] = json.encodeToString(ListSerializer(Site.serializer()), next)
+                p[SOURCES_VERSION] = 3
             }
         }
     }
