@@ -84,13 +84,13 @@ JVM tests live in `app/src/test/java/app/potatotv/tv/`:
 - `XmlTvParserTest` — field extraction, CDATA/entities, UTC conversion, midnight, invalid/negative/duplicate programmes, XXE rejection, Now/Next, classification.
 - `SafeUrlsTest` — SSRF/loopback/private blocking, player schemes, credential redaction.
 
-Run: `gradlew testTvDebugUnitTest`.
+Run: `gradlew testTvDebugUnitTest testMobileDebugUnitTest`. Both flavours pass: **22 tests each (44 executions), 0 failures**. The TV and mobile Kotlin sources also compile cleanly.
 
 ## 6. Limitations / next priorities
 
 1. EPG source management UI and an admin coverage/match-review screen are not yet surfaced (repository methods exist).
 2. iptv-org `guides.json` has no published source URLs at present; no schedule can be fetched from it until the upstream dataset changes.
 3. Popularity is local viewing count only; no cross-device or provider popularity data is invented.
-4. Stream health checks reuse the existing conservative "Check working" action; health is not yet written back into `StreamHealth` per source.
+4. Stream health checks reuse the existing conservative "Check working" action; results are now batched into `StreamHealth` per stream (availability, latency, failure category) without deleting streams on a temporary error.
 5. Programme artwork/cast enrichment beyond XMLTV is not integrated; the schema is ready for it.
 6. The EPG grid currently renders up to 80 channels and a 6-hour window; pagination/time-window navigation is a next step.
