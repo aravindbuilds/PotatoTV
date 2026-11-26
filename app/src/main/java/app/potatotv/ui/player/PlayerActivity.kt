@@ -594,7 +594,7 @@ private fun PlayerScreen(
                     }
             )
 
-            if (buffering) {
+            if (buffering && !isLive) {
                 CircularProgressIndicator(
                     color = PotatoAccent,
                     modifier = Modifier

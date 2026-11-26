@@ -225,11 +225,11 @@ fun SettingsScreen(@Suppress("UNUSED_PARAMETER") nav: NavController) {
                 title = "Playback & browsing",
                 subtitle = "These apply to the built-in browser and the native player."
             ) {
-                ToggleRow(
-                    title = "Auto-play detected streams",
-                    subtitle = "When the page starts an HLS or DASH stream, open it in the native player immediately.",
-                    checked = settings.autoPlayStreams
-                ) { save("autoPlayStreams", it) }
+                Text(
+                    "Detected streams are shown as a button. The site's own player keeps playing unless you choose to open the stream in PotatoTV's player.",
+                    color = PotatoTextDim,
+                    style = MaterialTheme.typography.bodyMedium
+                )
                 ToggleRow(
                     title = "Ad & popup blocking",
                     subtitle = "Blocks known ad, tracker and popunder hosts before they load.",

@@ -1,7 +1,11 @@
 package app.potatotv.ui.browser
 
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.pm.ActivityInfo
 import android.os.SystemClock
+import android.view.View
+import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -10,6 +14,7 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -133,6 +138,46 @@ fun BrowserScreen(
 
     val railFocus = remember { FocusRequester() }
     val webView = remember { WebView(context) }
+    val activity = context as? Activity
+
+    // Fullscreen video played inside the site (YouTube-style) needs a custom
+    // view plus permission to rotate; the site's own player then works normally.
+    var fullscreenView by remember { mutableStateOf<View?>(null) }
+    var fullscreenCallback by remember { mutableStateOf<WebChromeClient.CustomViewCallback?>(null) }
+    var previousOrientation by remember {
+        mutableStateOf(activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
+    }
+
+    fun showFullscreen(view: View, callback: WebChromeClient.CustomViewCallback?) {
+        if (fullscreenView != null) return
+        previousOrientation = activity?.requestedOrientation
+            ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        fullscreenView = view
+        fullscreenCallback = callback
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
+        val decor = activity?.window?.decorView as? FrameLayout
+        decor?.addView(
+            view,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+    }
+
+    fun hideFullscreen() {
+        fullscreenView?.let { view ->
+            (view.parent as? ViewGroup)?.removeView(view)
+        }
+        fullscreenView = null
+        fullscreenCallback?.onCustomViewHidden()
+        fullscreenCallback = null
+        activity?.requestedOrientation = previousOrientation
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { hideFullscreen() }
+    }
     val sniffer = remember {
         context.assets.open("sniffer.js").bufferedReader().use { it.readText() }
     }
@@ -286,6 +331,18 @@ fun BrowserScreen(
                 BrowserSession.setPage(title.orEmpty(), view?.url.orEmpty())
             }
 
+            override fun onShowCustomView(view: View?, callback: WebChromeClient.CustomViewCallback?) {
+                if (view == null) {
+                    callback?.onCustomViewHidden()
+                    return
+                }
+                showFullscreen(view, callback)
+            }
+
+            override fun onHideCustomView() {
+                hideFullscreen()
+            }
+
             override fun onCreateWindow(
                 view: WebView?,
                 isDialog: Boolean,
@@ -356,16 +413,9 @@ fun BrowserScreen(
             BrowserSession.events.collect { event ->
                 when (event) {
                     is BrowserEvent.Stream -> {
+                        // Only surface the stream. The site keeps playing its own
+                        // video; the user can open the native player explicitly.
                         detected = event.stream
-                        val auto = latestSettings.value.autoPlayStreams
-                        val autoKind = event.stream.kind == "hls" || event.stream.kind == "dash"
-                        val now = SystemClock.elapsedRealtime()
-                        val debounce = lastLaunchUrl == event.stream.url && now - lastLaunchAt < 25_000
-                        if (auto && autoKind && !debounce) {
-                            lastLaunchUrl = event.stream.url
-                            lastLaunchAt = now
-                            openPlayer(event.stream)
-                        }
                     }
                     is BrowserEvent.Cursor -> cursorOn = event.on
                 }
@@ -374,7 +424,9 @@ fun BrowserScreen(
     }
 
     BackHandler {
-        if (showMenus) {
+        if (fullscreenView != null) {
+            hideFullscreen()
+        } else if (showMenus) {
             showMenus = false
         } else if (webView.canGoBack()) {
             webView.goBack()

@@ -1,5 +1,7 @@
 package app.potatotv
 
+import android.app.Activity
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -8,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,6 +63,18 @@ fun PotatoApp() {
     val route = entry?.destination?.route
     val hideChrome = route?.startsWith("browser") == true
     val compact = isCompactScreen()
+
+    // Lock ordinary screens to the flavour's orientation, but let the browser
+    // rotate freely so a site's fullscreen video player can go landscape.
+    val activity = androidx.compose.ui.platform.LocalContext.current as? Activity
+    DisposableEffect(route, BuildConfig.FLAVOR) {
+        activity?.requestedOrientation = when {
+            route?.startsWith("browser") == true -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            BuildConfig.FLAVOR == "mobile" -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            else -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        }
+        onDispose { }
+    }
 
     Box(
         Modifier
