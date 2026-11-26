@@ -83,7 +83,7 @@ import kotlinx.coroutines.launch
 import java.net.URLEncoder
 
 @Composable
-fun TitleScreen(nav: NavController, type: String, id: String) {
+fun TitleScreen(nav: NavController, type: String, id: String, autoplay: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var meta by remember { mutableStateOf<MetaDetail?>(null) }
@@ -91,6 +91,7 @@ fun TitleScreen(nav: NavController, type: String, id: String) {
     var error by remember { mutableStateOf<String?>(null) }
     var season by remember { mutableStateOf<Int?>(null) }
     var showSites by remember { mutableStateOf(false) }
+    var autoOpened by remember { mutableStateOf(false) }
     var pendingEpisode by remember { mutableStateOf<MetaVideo?>(null) }
 
     val sites by ServiceLocator.prefs.sites.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -151,6 +152,15 @@ fun TitleScreen(nav: NavController, type: String, id: String) {
         showSites = false
         pendingEpisode = null
         nav.navigate("browser?url=${URLEncoder.encode(url, "UTF-8")}&name=${URLEncoder.encode(site.name, "UTF-8")}&siteId=${URLEncoder.encode(site.id, "UTF-8")}")
+    }
+
+    // "Play" from Home/Continue watching: open the best title-matched site
+    // straight away using the deeplink templates for this movie or series.
+    LaunchedEffect(autoplay, detail.id, sorted.size) {
+        if (autoplay && !autoOpened && sorted.isNotEmpty()) {
+            autoOpened = true
+            openSite(sorted.first(), null)
+        }
     }
 
     if (isCompactScreen()) {

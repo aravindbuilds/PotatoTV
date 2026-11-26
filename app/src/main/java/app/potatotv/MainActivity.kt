@@ -113,16 +113,18 @@ fun PotatoApp() {
                 SettingsScreen(nav)
             }
             composable(
-                "title/{type}/{id}",
+                "title/{type}/{id}?autoplay={autoplay}",
                 arguments = listOf(
                     navArgument("type") { type = NavType.StringType },
-                    navArgument("id") { type = NavType.StringType }
+                    navArgument("id") { type = NavType.StringType },
+                    navArgument("autoplay") { type = NavType.StringType; defaultValue = "0" }
                 )
             ) { backStackEntry ->
                 TitleScreen(
                     nav = nav,
                     type = backStackEntry.arguments?.getString("type") ?: "movie",
-                    id = backStackEntry.arguments?.getString("id") ?: ""
+                    id = backStackEntry.arguments?.getString("id") ?: "",
+                    autoplay = backStackEntry.arguments?.getString("autoplay") == "1"
                 )
             }
             composable(

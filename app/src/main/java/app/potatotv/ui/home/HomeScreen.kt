@@ -123,7 +123,7 @@ fun HomeScreen(nav: NavController) {
                         item = hero,
                         progress = progress[hero.id],
                         inMyList = myList.any { it.id == hero.id },
-                        onPlay = { nav.navigate("title/${hero.type}/${hero.id}") },
+                        onPlay = { nav.navigate("title/${hero.type}/${hero.id}?autoplay=1") },
                         onToggleList = {
                             scope.launch { ServiceLocator.prefs.toggleMyList(hero) }
                         },
